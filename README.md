@@ -1,9 +1,9 @@
 engine [WIP] :construction:
-============
+===========================
 
-[![Circle CI](https://circleci.com/gh/maliceio/engine.png?style=shield)](https://circleci.com/gh/maliceio/engine) [![License](https://img.shields.io/badge/licence-Apache%202.0-blue.svg)](LICENSE) [![Release](https://img.shields.io/github/release/maliceio/engine.svg)](https://github.com/maliceio/engine/releases/latest) [![GoDoc](https://godoc.org/github.com/maliceio/engine?status.svg)](https://godoc.org/github.com/maliceio/engine) 
+[![Circle CI](https://circleci.com/gh/maliceio/engine.png?style=shield)](https://circleci.com/gh/maliceio/engine) [![License](https://img.shields.io/badge/licence-Apache%202.0-blue.svg)](LICENSE) [![Release](https://img.shields.io/github/release/maliceio/engine.svg)](https://github.com/maliceio/engine/releases/latest) [![GoDoc](https://godoc.org/github.com/maliceio/engine?status.svg)](https://godoc.org/github.com/maliceio/engine)
 
-> Malice Engine
+> Malice Engine includes malice `daemon` and `API`
 
 ---
 

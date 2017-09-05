@@ -1,8 +1,8 @@
 
 builds:
   -
-    main: ./cmd/malice
-    binary: engine
+    main: ./cmd/maliced
+    binary: maliced
     env:
       - CGO_ENABLED=0
     goos:
@@ -12,16 +12,13 @@ builds:
     goarch:
       - amd64
     ldflags: |-
-      -s 
-      -w 
-      -X github.com/maliceio/engine/malice/version.Version={{.Version}} 
-      -X github.com/maliceio/engine/malice/version.BuildTime={{.Date}} 
+      -s
+      -w
+      -X github.com/maliceio/engine/malice/version.Version={{.Version}}
+      -X github.com/maliceio/engine/malice/version.BuildTime={{.Date}}
       -X github.com/maliceio/engine/malice/version.GitCommit={{.Commit}}
 
 archive:
-  files:
-    - contrib/completion/zsh/_engine
-    - contrib/completion/bash/engine
   format: tar.gz
   format_overrides:
     - goos: windows
@@ -40,11 +37,9 @@ brew:
   homepage: "https://github.com/maliceio/engine"
   description: "Open Source Malware Analysis Framework."
   install: |
-    bin.install "engine"
-    zsh_completion.install "contrib/completion/zsh/_engine"
-    bash_completion.install "contrib/completion/bash/engine"
+    bin.install "maliced"
   test: |
-    system "#{bin}/engine --version"
+    system "#{bin}/maliced --version"
 
 fpm:
   vendor: MaliceIO
@@ -55,18 +50,15 @@ fpm:
   formats:
     - deb
     - rpm
-  files:
-    "contrib/completion/zsh/_engine": "$HOME/.zsh/completion/_engine"
-    "contrib/completion/bash/engine": "/etc/bash_completion.d/engine"
 
 snapcraft:
-  name: malice
-  summary: Open Source Malware Analysis Framework.
+  name: maliced
+  summary: Open Source Malware Analysis Framework Daemon.
   description: |
-    Malice's mission is to be a free open source version of VirusTotal that anyone can use at any scale from an independent researcher to a fortune 500 company.
+    Malice's background daemon/API.
   grade: stable
   confinement: strict
   apps:
-    malice:
+    maliced:
       plugs: ["home", "network"]
       daemon: simple
