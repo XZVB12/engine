@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/docker/docker/pkg/term"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
@@ -27,7 +28,7 @@ func SetupRootCommand(rootCmd *cobra.Command) {
 }
 
 // FlagErrorFunc prints an error message which matches the format of the
-// maliceio/engine/cli error messages
+// docker/docker/cli error messages
 func FlagErrorFunc(cmd *cobra.Command, err error) error {
 	if err == nil {
 		return nil
@@ -79,10 +80,10 @@ func operationSubCommands(cmd *cobra.Command) []*cobra.Command {
 }
 
 func wrappedFlagUsages(cmd *cobra.Command) string {
-	width := 120
-	// if ws, err := term.GetWinsize(0); err == nil {
-	// 	width = int(ws.Width)
-	// }
+	width := 80
+	if ws, err := term.GetWinsize(0); err == nil {
+		width = int(ws.Width)
+	}
 	return cmd.Flags().FlagUsagesWrapped(width - 1)
 }
 
@@ -97,38 +98,48 @@ func managementSubCommands(cmd *cobra.Command) []*cobra.Command {
 }
 
 var usageTemplate = `Usage:
+
 {{- if not .HasSubCommands}}	{{.UseLine}}{{end}}
 {{- if .HasSubCommands}}	{{ .CommandPath}} COMMAND{{end}}
 
 {{ .Short | trim }}
+
 {{- if gt .Aliases 0}}
 
 Aliases:
   {{.NameAndAliases}}
+
 {{- end}}
 {{- if .HasExample}}
+
 Examples:
 {{ .Example }}
+
 {{- end}}
 {{- if .HasFlags}}
 
 Options:
 {{ wrappedFlagUsages . | trimRightSpace}}
+
 {{- end}}
 {{- if hasManagementSubCommands . }}
 
 Management Commands:
+
 {{- range managementSubCommands . }}
   {{rpad .Name .NamePadding }} {{.Short}}
 {{- end}}
+
 {{- end}}
 {{- if hasSubCommands .}}
 
 Commands:
+
 {{- range operationSubCommands . }}
   {{rpad .Name .NamePadding }} {{.Short}}
 {{- end}}
 {{- end}}
+
 {{- if .HasSubCommands }}
 
 Run '{{.CommandPath}} COMMAND --help' for more information on a command.

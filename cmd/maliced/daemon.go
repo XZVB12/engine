@@ -51,7 +51,6 @@ func init() {
 func runDaemon() error {
 
 	// daemon := NewDaemon()
-
 	// err = daemon.start(opts)
 	// notifyShutdown(err)
 	// return err
@@ -60,8 +59,8 @@ func runDaemon() error {
 
 // initConfig reads in config file and ENV variables if set.
 func initDaemonConfig() {
-	if cfgFile != "" { // enable ability to specify config file via flag
-		viper.SetConfigFile(cfgFile)
+	if cfgDaemonFile != "" { // enable ability to specify config file via flag
+		viper.SetConfigFile(cfgDaemonFile)
 	}
 
 	viper.SetConfigType("toml")
