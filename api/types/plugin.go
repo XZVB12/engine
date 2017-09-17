@@ -259,3 +259,41 @@ type PluginSettings struct {
 	// Required: true
 	Mounts []PluginMount `json:"Mounts"`
 }
+
+// PluginRemoveOptions holds parameters to remove plugins.
+type PluginRemoveOptions struct {
+	Force bool
+}
+
+// PluginEnableOptions holds parameters to enable plugins.
+type PluginEnableOptions struct {
+	Timeout int
+}
+
+// PluginDisableOptions holds parameters to disable plugins.
+type PluginDisableOptions struct {
+	Force bool
+}
+
+// PluginInstallOptions holds parameters to install a plugin.
+type PluginInstallOptions struct {
+	Disabled             bool
+	AcceptAllPermissions bool
+	RegistryAuth         string // RegistryAuth is the base64 encoded credentials for the registry
+	RemoteRef            string // RemoteRef is the plugin name on the registry
+	// PrivilegeFunc         RequestPrivilegeFunc
+	AcceptPermissionsFunc func(PluginPrivileges) (bool, error)
+	Args                  []string
+}
+
+// SwarmUnlockKeyResponse contains the response for Engine API:
+// GET /swarm/unlockkey
+type SwarmUnlockKeyResponse struct {
+	// UnlockKey is the unlock key in ASCII-armored format.
+	UnlockKey string
+}
+
+// PluginCreateOptions hold all options to plugin create.
+type PluginCreateOptions struct {
+	RepoName string
+}
