@@ -11,8 +11,6 @@ import (
 
 	"github.com/docker/libnetwork/portallocator"
 	"github.com/maliceio/engine/cmd/maliced/hack"
-	"github.com/maliceio/engine/daemon"
-	"github.com/maliceio/engine/libcontainerd"
 	"golang.org/x/sys/unix"
 )
 
@@ -45,26 +43,26 @@ func (cli *DaemonCli) setupConfigReloadTrap() {
 	}()
 }
 
-func (cli *DaemonCli) getPlatformRemoteOptions() []libcontainerd.RemoteOption {
-	opts := []libcontainerd.RemoteOption{
-		libcontainerd.WithDebugLog(cli.Config.Debug),
-		libcontainerd.WithOOMScore(cli.Config.OOMScoreAdjust),
-	}
-	if cli.Config.ContainerdAddr != "" {
-		opts = append(opts, libcontainerd.WithRemoteAddr(cli.Config.ContainerdAddr))
-	} else {
-		opts = append(opts, libcontainerd.WithStartDaemon(true))
-	}
-	if daemon.UsingSystemd(cli.Config) {
-		args := []string{"--systemd-cgroup=true"}
-		opts = append(opts, libcontainerd.WithRuntimeArgs(args))
-	}
-	if cli.Config.LiveRestoreEnabled {
-		opts = append(opts, libcontainerd.WithLiveRestore(true))
-	}
-	opts = append(opts, libcontainerd.WithRuntimePath(daemon.DefaultRuntimeBinary))
-	return opts
-}
+// func (cli *DaemonCli) getPlatformRemoteOptions() []libcontainerd.RemoteOption {
+// 	opts := []libcontainerd.RemoteOption{
+// 		libcontainerd.WithDebugLog(cli.Config.Debug),
+// 		libcontainerd.WithOOMScore(cli.Config.OOMScoreAdjust),
+// 	}
+// 	if cli.Config.ContainerdAddr != "" {
+// 		opts = append(opts, libcontainerd.WithRemoteAddr(cli.Config.ContainerdAddr))
+// 	} else {
+// 		opts = append(opts, libcontainerd.WithStartDaemon(true))
+// 	}
+// 	if daemon.UsingSystemd(cli.Config) {
+// 		args := []string{"--systemd-cgroup=true"}
+// 		opts = append(opts, libcontainerd.WithRuntimeArgs(args))
+// 	}
+// 	if cli.Config.LiveRestoreEnabled {
+// 		opts = append(opts, libcontainerd.WithLiveRestore(true))
+// 	}
+// 	opts = append(opts, libcontainerd.WithRuntimePath(daemon.DefaultRuntimeBinary))
+// 	return opts
+// }
 
 // allocateDaemonPort ensures that there are no containers
 // that try to use any port allocated for the malice server.

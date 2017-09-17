@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"crypto/tls"
 	"fmt"
 	"os"
@@ -18,31 +17,20 @@ import (
 	"github.com/docker/docker/pkg/signal"
 	"github.com/docker/docker/pkg/system"
 	"github.com/docker/go-connections/tlsconfig"
-	swarmapi "github.com/docker/swarmkit/api"
 	"github.com/maliceio/engine/api"
 	apiserver "github.com/maliceio/engine/api/server"
-	buildbackend "github.com/maliceio/engine/api/server/backend/build"
 	"github.com/maliceio/engine/api/server/middleware"
 	"github.com/maliceio/engine/api/server/router"
-	"github.com/maliceio/engine/api/server/router/build"
-	checkpointrouter "github.com/maliceio/engine/api/server/router/checkpoint"
-	"github.com/maliceio/engine/api/server/router/container"
-	"github.com/maliceio/engine/api/server/router/image"
-	"github.com/maliceio/engine/api/server/router/network"
 	pluginrouter "github.com/maliceio/engine/api/server/router/plugin"
 	sessionrouter "github.com/maliceio/engine/api/server/router/session"
 	systemrouter "github.com/maliceio/engine/api/server/router/system"
 	"github.com/maliceio/engine/api/server/router/volume"
-	"github.com/maliceio/engine/builder/dockerfile"
-	"github.com/maliceio/engine/builder/fscache"
 	"github.com/maliceio/engine/cli/debug"
 	"github.com/maliceio/engine/daemon"
-	"github.com/maliceio/engine/daemon/cluster"
 	"github.com/maliceio/engine/daemon/config"
 	"github.com/maliceio/engine/daemon/listeners"
 	"github.com/maliceio/engine/daemon/logger"
-	"github.com/maliceio/engine/libcontainerd"
-	"github.com/maliceio/engine/maliceversion"
+	"github.com/maliceio/engine/malice/version"
 	dopts "github.com/maliceio/engine/opts"
 	"github.com/maliceio/engine/plugin"
 	"github.com/maliceio/engine/registry"
@@ -130,7 +118,7 @@ func (cli *DaemonCli) start(opts *daemonOptions) (err error) {
 	serverConfig := &apiserver.Config{
 		Logging:     true,
 		SocketGroup: cli.Config.SocketGroup,
-		Version:     maliceversion.Version,
+		Version:     version.Version,
 		CorsHeaders: cli.Config.CorsHeaders,
 	}
 
@@ -197,7 +185,7 @@ func (cli *DaemonCli) start(opts *daemonOptions) (err error) {
 	}
 
 	registryService := registry.NewService(cli.Config.ServiceOptions)
-	containerdRemote, err := libcontainerd.New(cli.getLibcontainerdRoot(), cli.getPlatformRemoteOptions()...)
+	// containerdRemote, err := libcontainerd.New(cli.getLibcontainerdRoot(), cli.getPlatformRemoteOptions()...)
 	if err != nil {
 		return err
 	}
@@ -219,7 +207,7 @@ func (cli *DaemonCli) start(opts *daemonOptions) (err error) {
 		logrus.Warnln("LCOW support is enabled - this feature is incomplete")
 	}
 
-	d, err := daemon.NewDaemon(cli.Config, registryService, containerdRemote, pluginStore)
+	d, err := daemon.NewDaemon(cli.Config, registryService, pluginStore)
 	if err != nil {
 		return fmt.Errorf("Error starting daemon: %v", err)
 	}
@@ -244,33 +232,33 @@ func (cli *DaemonCli) start(opts *daemonOptions) (err error) {
 	// TODO: createAndStartCluster()
 	name, _ := os.Hostname()
 
-	// Use a buffered channel to pass changes from store watch API to daemon
-	// A buffer allows store watch API and daemon processing to not wait for each other
-	watchStream := make(chan *swarmapi.WatchMessage, 32)
+	// // Use a buffered channel to pass changes from store watch API to daemon
+	// // A buffer allows store watch API and daemon processing to not wait for each other
+	// watchStream := make(chan *swarmapi.WatchMessage, 32)
 
-	c, err := cluster.New(cluster.Config{
-		Root:                   cli.Config.Root,
-		Name:                   name,
-		Backend:                d,
-		PluginBackend:          d.PluginManager(),
-		NetworkSubnetsProvider: d,
-		DefaultAdvertiseAddr:   cli.Config.SwarmDefaultAdvertiseAddr,
-		RuntimeRoot:            cli.getSwarmRunRoot(),
-		WatchStream:            watchStream,
-	})
-	if err != nil {
-		logrus.Fatalf("Error creating cluster component: %v", err)
-	}
-	d.SetCluster(c)
-	err = c.Start()
-	if err != nil {
-		logrus.Fatalf("Error starting cluster component: %v", err)
-	}
+	// c, err := cluster.New(cluster.Config{
+	// 	Root:                   cli.Config.Root,
+	// 	Name:                   name,
+	// 	Backend:                d,
+	// 	PluginBackend:          d.PluginManager(),
+	// 	NetworkSubnetsProvider: d,
+	// 	DefaultAdvertiseAddr:   cli.Config.SwarmDefaultAdvertiseAddr,
+	// 	RuntimeRoot:            cli.getSwarmRunRoot(),
+	// 	WatchStream:            watchStream,
+	// })
+	// if err != nil {
+	// 	logrus.Fatalf("Error creating cluster component: %v", err)
+	// }
+	// d.SetCluster(c)
+	// err = c.Start()
+	// if err != nil {
+	// 	logrus.Fatalf("Error starting cluster component: %v", err)
+	// }
 
-	// Restart all autostart containers which has a swarm endpoint
-	// and is not yet running now that we have successfully
-	// initialized the cluster.
-	d.RestartSwarmContainers()
+	// // Restart all autostart containers which has a swarm endpoint
+	// // and is not yet running now that we have successfully
+	// // initialized the cluster.
+	// d.RestartSwarmContainers()
 
 	logrus.Info("Daemon has completed initialization")
 
@@ -281,14 +269,14 @@ func (cli *DaemonCli) start(opts *daemonOptions) (err error) {
 		return err
 	}
 	routerOptions.api = cli.api
-	routerOptions.cluster = c
+	// routerOptions.cluster = c
 
 	initRouter(routerOptions)
 
 	// process cluster change notifications
-	watchCtx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	go d.ProcessClusterNotifications(watchCtx, watchStream)
+	// watchCtx, cancel := context.WithCancel(context.Background())
+	// defer cancel()
+	// go d.ProcessClusterNotifications(watchCtx, watchStream)
 
 	cli.setupConfigReloadTrap()
 
@@ -306,7 +294,7 @@ func (cli *DaemonCli) start(opts *daemonOptions) (err error) {
 	errAPI := <-serveAPIWait
 	c.Cleanup()
 	shutdownDaemon(d)
-	containerdRemote.Cleanup()
+	// containerdRemote.Cleanup()
 	if errAPI != nil {
 		return fmt.Errorf("Shutting down due to ServeAPI error: %v", errAPI)
 	}
@@ -318,9 +306,9 @@ type routerOptions struct {
 	sessionManager *session.Manager
 	// buildBackend   *buildbackend.Backend
 	// buildCache     *fscache.FSCache
-	daemon  *daemon.Daemon
-	api     *apiserver.Server
-	cluster *cluster.Cluster
+	daemon *daemon.Daemon
+	api    *apiserver.Server
+	// cluster *cluster.Cluster
 }
 
 func newRouterOptions(config *config.Config, daemon *daemon.Daemon) (routerOptions, error) {
@@ -330,35 +318,35 @@ func newRouterOptions(config *config.Config, daemon *daemon.Daemon) (routerOptio
 		return opts, errors.Wrap(err, "failed to create sessionmanager")
 	}
 
-	builderStateDir := filepath.Join(config.Root, "builder")
+	// builderStateDir := filepath.Join(config.Root, "builder")
 
-	buildCache, err := fscache.NewFSCache(fscache.Opt{
-		Backend: fscache.NewNaiveCacheBackend(builderStateDir),
-		Root:    builderStateDir,
-		GCPolicy: fscache.GCPolicy{ // TODO: expose this in config
-			MaxSize:         1024 * 1024 * 512,  // 512MB
-			MaxKeepDuration: 7 * 24 * time.Hour, // 1 week
-		},
-	})
-	if err != nil {
-		return opts, errors.Wrap(err, "failed to create fscache")
-	}
+	// buildCache, err := fscache.NewFSCache(fscache.Opt{
+	// 	Backend: fscache.NewNaiveCacheBackend(builderStateDir),
+	// 	Root:    builderStateDir,
+	// 	GCPolicy: fscache.GCPolicy{ // TODO: expose this in config
+	// 		MaxSize:         1024 * 1024 * 512,  // 512MB
+	// 		MaxKeepDuration: 7 * 24 * time.Hour, // 1 week
+	// 	},
+	// })
+	// if err != nil {
+	// 	return opts, errors.Wrap(err, "failed to create fscache")
+	// }
 
-	manager, err := dockerfile.NewBuildManager(daemon, sm, buildCache, daemon.IDMappings())
-	if err != nil {
-		return opts, err
-	}
+	// manager, err := dockerfile.NewBuildManager(daemon, sm, buildCache, daemon.IDMappings())
+	// if err != nil {
+	// 	return opts, err
+	// }
 
-	bb, err := buildbackend.NewBackend(daemon, manager, buildCache)
-	if err != nil {
-		return opts, errors.Wrap(err, "failed to create buildmanager")
-	}
+	// bb, err := buildbackend.NewBackend(daemon, manager, buildCache)
+	// if err != nil {
+	// 	return opts, errors.Wrap(err, "failed to create buildmanager")
+	// }
 
 	return routerOptions{
 		sessionManager: sm,
-		buildBackend:   bb,
-		buildCache:     buildCache,
-		daemon:         daemon,
+		// buildBackend:   bb,
+		// buildCache:     buildCache,
+		daemon: daemon,
 	}, nil
 }
 
@@ -507,21 +495,21 @@ func initRouter(opts routerOptions) {
 
 	routers := []router.Router{
 		// we need to add the checkpoint router before the container router or the DELETE gets masked
-		checkpointrouter.NewRouter(opts.daemon, decoder),
-		container.NewRouter(opts.daemon, decoder),
-		image.NewRouter(opts.daemon, decoder),
-		systemrouter.NewRouter(opts.daemon, opts.cluster, opts.buildCache),
+		// checkpointrouter.NewRouter(opts.daemon, decoder),
+		// container.NewRouter(opts.daemon, decoder),
+		// image.NewRouter(opts.daemon, decoder),
+		systemrouter.NewRouter(opts.daemon),
 		volume.NewRouter(opts.daemon),
-		build.NewRouter(opts.buildBackend, opts.daemon),
+		// build.NewRouter(opts.buildBackend, opts.daemon),
 		sessionrouter.NewRouter(opts.sessionManager),
 		// swarmrouter.NewRouter(opts.cluster),
 		pluginrouter.NewRouter(opts.daemon.PluginManager()),
 		// distributionrouter.NewRouter(opts.daemon),
 	}
 
-	if opts.daemon.NetworkControllerEnabled() {
-		routers = append(routers, network.NewRouter(opts.daemon, opts.cluster))
-	}
+	// if opts.daemon.NetworkControllerEnabled() {
+	// 	routers = append(routers, network.NewRouter(opts.daemon, opts.cluster))
+	// }
 
 	if opts.daemon.HasExperimental() {
 		for _, r := range routers {
