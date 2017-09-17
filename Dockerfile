@@ -23,7 +23,7 @@ ENV MALICE_IN_DOCKER true
 
 RUN apk --no-cache add ca-certificates
 
-COPY --from=builder /go/src/github.com/maliceio/engine/cmd/malice/build/malice /bin/malice
+COPY --from=builder /go/src/github.com/maliceio/engine/cmd/malice/build/maliced /bin/maliced
 WORKDIR /malice/samples
 
 VOLUME ["/malice/config"]
@@ -31,7 +31,7 @@ VOLUME ["/malice/samples"]
 
 EXPOSE 80 443
 
-ENTRYPOINT ["malice"]
+ENTRYPOINT ["maliced"]
 CMD ["--help"]
 
 #############################################

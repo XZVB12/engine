@@ -16,5 +16,5 @@ export LDFLAGS="\
 echo "$LDFLAGS"
 GOOS="${GOOS:-$(go env GOHOSTOS)}"
 GOARCH="${GOARCH:-$(go env GOHOSTARCH)}"
-export TARGET="build/malice-$GOOS-$GOARCH"
-export SOURCE="github.com/maliceio/engine/cmd/malice"
+export TARGET="build/maliced-$GOOS-$GOARCH"
+export SOURCE="github.com/maliceio/engine/cmd/maliced"
