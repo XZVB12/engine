@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/docker/distribution/uuid"
 	"github.com/docker/docker/pkg/authorization"
 	"github.com/docker/docker/pkg/jsonlog"
@@ -35,6 +34,7 @@ import (
 	"github.com/maliceio/engine/registry"
 	"github.com/moby/buildkit/session"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 )
 
