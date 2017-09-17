@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"github.com/gorilla/mux"
 	"github.com/maliceio/engine/api/errdefs"
 	"github.com/maliceio/engine/api/types"

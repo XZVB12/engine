@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"github.com/gorilla/mux"
 	"github.com/maliceio/engine/api/server/httputils"
 	"github.com/maliceio/engine/api/server/middleware"

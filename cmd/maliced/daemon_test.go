@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"github.com/gotestyourself/gotestyourself/fs"
 	"github.com/maliceio/engine/daemon/config"
 	"github.com/maliceio/engine/internal/testutil"

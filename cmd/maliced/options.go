@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"github.com/docker/go-connections/tlsconfig"
 	cliconfig "github.com/maliceio/engine/cli/config"
 	"github.com/maliceio/engine/daemon/config"

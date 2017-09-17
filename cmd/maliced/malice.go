@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"github.com/docker/docker/pkg/reexec"
 	"github.com/docker/docker/pkg/term"
 	"github.com/maliceio/engine/cli"

@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"github.com/docker/docker/pkg/ioutils"
 	"github.com/maliceio/engine/api"
 	"github.com/maliceio/engine/api/server/httputils"

@@ -1,7 +1,7 @@
 package server
 
 import (
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"github.com/maliceio/engine/api/server/httputils"
 	"github.com/maliceio/engine/api/server/middleware"
 )
