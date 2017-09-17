@@ -8,12 +8,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/sirupsen/logrus"
 	"github.com/docker/distribution/reference"
 	registrytypes "github.com/docker/docker/api/types/registry"
-	"github.com/docker/docker/opts"
 	"github.com/pkg/errors"
-	"github.com/spf13/pflag"
+	"github.com/sirupsen/logrus"
 )
 
 // ServiceOptions holds command line options.
@@ -71,20 +69,6 @@ var (
 
 // for mocking in unit tests
 var lookupIP = net.LookupIP
-
-// InstallCliFlags adds command-line options to the top-level flag parser for
-// the current process.
-func (options *ServiceOptions) InstallCliFlags(flags *pflag.FlagSet) {
-	ana := opts.NewNamedListOptsRef("allow-nondistributable-artifacts", &options.AllowNondistributableArtifacts, ValidateIndexName)
-	mirrors := opts.NewNamedListOptsRef("registry-mirrors", &options.Mirrors, ValidateMirror)
-	insecureRegistries := opts.NewNamedListOptsRef("insecure-registries", &options.InsecureRegistries, ValidateIndexName)
-
-	flags.Var(ana, "allow-nondistributable-artifacts", "Allow push of nondistributable artifacts to registry")
-	flags.Var(mirrors, "registry-mirror", "Preferred Docker registry mirror")
-	flags.Var(insecureRegistries, "insecure-registry", "Enable insecure registry communication")
-
-	options.installCliPlatformFlags(flags)
-}
 
 // newServiceConfig returns a new instance of ServiceConfig
 func newServiceConfig(options ServiceOptions) *serviceConfig {
@@ -252,7 +236,7 @@ skip:
 	return nil
 }
 
-// allowNondistributableArtifacts returns true if the provided hostname is part of the list of regsitries
+// allowNondistributableArtifacts returns true if the provided hostname is part of the list of registries
 // that allow push of nondistributable artifacts.
 //
 // The list can contain elements with CIDR notation to specify a whole subnet. If the subnet contains an IP
@@ -354,7 +338,7 @@ func ValidateIndexName(val string) (string, error) {
 		val = "docker.io"
 	}
 	if strings.HasPrefix(val, "-") || strings.HasSuffix(val, "-") {
-		return "", fmt.Errorf("Invalid index name (%s). Cannot begin or end with a hyphen.", val)
+		return "", fmt.Errorf("invalid index name (%s). Cannot begin or end with a hyphen", val)
 	}
 	return val, nil
 }

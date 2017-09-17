@@ -1,8 +1,5 @@
 // Package daemon exposes the functions that occur on the host server
 // that the Malice daemon is running.
-//
-// In implementing the various functions of the daemon, there is often
-// a method-specific struct for configuring the runtime behavior.
 package daemon
 
 import (
@@ -29,7 +26,7 @@ import (
 	"github.com/maliceio/engine/daemon/exec"
 	"github.com/maliceio/engine/daemon/logger"
 	"github.com/sirupsen/logrus"
-	// register graph drivers
+
 	"github.com/docker/docker/pkg/containerfs"
 	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/plugingetter"
@@ -60,13 +57,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-var (
-	// DefaultRuntimeBinary is the default runtime to be used by
-	// containerd if none is specified
-	DefaultRuntimeBinary = "malice-runc"
-
-	errSystemNotSupported = errors.New("the Malice daemon is not supported on this platform")
-)
+var errSystemNotSupported = errors.New("the Malice daemon is not supported on this platform")
 
 type daemonStore struct {
 	graphDriver               string
@@ -78,35 +69,32 @@ type daemonStore struct {
 
 // Daemon holds information about the Malice daemon.
 type Daemon struct {
-	ID                    string
-	repository            string
-	containers            container.Store
-	containersReplica     container.ViewDB
-	execCommands          *exec.Store
-	downloadManager       *xfer.LayerDownloadManager
-	uploadManager         *xfer.LayerUploadManager
-	trustKey              libtrust.PrivateKey
-	idIndex               *truncindex.TruncIndex
-	configStore           *config.Config
-	statsCollector        *stats.Collector
-	defaultLogConfig      containertypes.LogConfig
-	RegistryService       registry.Service
-	EventsService         *events.Events
-	netController         libnetwork.NetworkController
-	volumes               *store.VolumeStore
-	discoveryWatcher      discovery.Reloader
-	root                  string
-	seccompEnabled        bool
-	apparmorEnabled       bool
-	shutdown              bool
-	idMappings            *idtools.IDMappings
-	stores                map[string]daemonStore // By container target platform
-	referenceStore        refstore.Store
-	PluginStore           *plugin.Store // todo: remove
-	pluginManager         *plugin.Manager
-	linkIndex             *linkIndex
-	containerd            libcontainerd.Client
-	containerdRemote      libcontainerd.Remote
+	ID         string
+	repository string
+
+	execCommands *exec.Store
+
+	trustKey         libtrust.PrivateKey
+	idIndex          *truncindex.TruncIndex
+	configStore      *config.Config
+	statsCollector   *stats.Collector
+	defaultLogConfig containertypes.LogConfig
+	RegistryService  registry.Service
+	EventsService    *events.Events
+	netController    libnetwork.NetworkController
+	volumes          *store.VolumeStore
+	discoveryWatcher discovery.Reloader
+	root             string
+	seccompEnabled   bool
+	apparmorEnabled  bool
+	shutdown         bool
+	idMappings       *idtools.IDMappings
+	stores           map[string]daemonStore // By container target platform
+	referenceStore   refstore.Store
+	PluginStore      *plugin.Store // todo: remove
+	pluginManager    *plugin.Manager
+	linkIndex        *linkIndex
+
 	defaultIsolation      containertypes.Isolation // Default isolation mode on Windows
 	clusterProvider       cluster.Provider
 	cluster               Cluster
@@ -132,14 +120,6 @@ func (daemon *Daemon) StoreHosts(hosts []string) {
 	for _, h := range hosts {
 		daemon.hosts[h] = true
 	}
-}
-
-// HasExperimental returns whether the experimental features of the daemon are enabled or not
-func (daemon *Daemon) HasExperimental() bool {
-	if daemon.configStore != nil && daemon.configStore.Experimental {
-		return true
-	}
-	return false
 }
 
 func (daemon *Daemon) restore() error {
@@ -957,39 +937,6 @@ func (daemon *Daemon) Shutdown() error {
 	return nil
 }
 
-// Mount sets container.BaseFS
-// (is it not set coming in? why is it unset?)
-func (daemon *Daemon) Mount(container *container.Container) error {
-	dir, err := container.RWLayer.Mount(container.GetMountLabel())
-	if err != nil {
-		return err
-	}
-	logrus.Debugf("container mounted via layerStore: %v", dir)
-
-	if container.BaseFS != nil && container.BaseFS.Path() != dir.Path() {
-		// The mount path reported by the graph driver should always be trusted on Windows, since the
-		// volume path for a given mounted layer may change over time.  This should only be an error
-		// on non-Windows operating systems.
-		if runtime.GOOS != "windows" {
-			daemon.Unmount(container)
-			return fmt.Errorf("Error: driver %s is returning inconsistent paths for container %s ('%s' then '%s')",
-				daemon.GraphDriverName(container.Platform), container.ID, container.BaseFS, dir)
-		}
-	}
-	container.BaseFS = dir // TODO: combine these fields
-	return nil
-}
-
-// Unmount unsets the container base filesystem
-func (daemon *Daemon) Unmount(container *container.Container) error {
-	if err := container.RWLayer.Unmount(); err != nil {
-		logrus.Errorf("Error unmounting container %s: %s", container.ID, err)
-		return err
-	}
-
-	return nil
-}
-
 // Subnets return the IPv4 and IPv6 subnets of networks that are manager by Malice.
 func (daemon *Daemon) Subnets() ([]net.IPNet, []net.IPNet) {
 	var v4Subnets []net.IPNet
@@ -1012,11 +959,6 @@ func (daemon *Daemon) Subnets() ([]net.IPNet, []net.IPNet) {
 	}
 
 	return v4Subnets, v6Subnets
-}
-
-// GraphDriverName returns the name of the graph driver used by the layer.Store
-func (daemon *Daemon) GraphDriverName(platform string) string {
-	return daemon.stores[platform].layerStore.DriverName()
 }
 
 // prepareTempDir prepares and returns the default directory to use
