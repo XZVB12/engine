@@ -6,12 +6,12 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"github.com/Sirupsen/logrus"
+	"github.com/docker/docker/pkg/reexec"
+	"github.com/docker/docker/pkg/term"
 	"github.com/maliceio/engine/cli"
 	"github.com/maliceio/engine/daemon/config"
-	"github.com/maliceio/engine/maliceversion"
-	"github.com/maliceio/engine/pkg/reexec"
-	"github.com/maliceio/engine/pkg/term"
-	"github.com/sirupsen/logrus"
+	"github.com/maliceio/engine/malice/version"
 	"github.com/spf13/cobra"
 )
 
@@ -81,7 +81,7 @@ func runDaemon(opts *daemonOptions) error {
 }
 
 func showVersion() {
-	fmt.Printf("Malice version %s, build %s\n", maliceversion.Version, maliceversion.GitCommit)
+	fmt.Printf("Malice version %s, build %s\n", version.Version, version.GitCommit)
 }
 
 func main() {

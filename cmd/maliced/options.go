@@ -5,11 +5,11 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/Sirupsen/logrus"
+	"github.com/docker/go-connections/tlsconfig"
 	cliconfig "github.com/maliceio/engine/cli/config"
 	"github.com/maliceio/engine/daemon/config"
 	"github.com/maliceio/engine/opts"
-	"github.com/docker/go-connections/tlsconfig"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 )
 

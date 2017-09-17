@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Sirupsen/logrus"
+	"github.com/docker/docker/pkg/ioutils"
 	"github.com/maliceio/engine/api"
 	"github.com/maliceio/engine/api/server/httputils"
 	"github.com/maliceio/engine/api/types"
@@ -14,9 +16,7 @@ import (
 	"github.com/maliceio/engine/api/types/registry"
 	timetypes "github.com/maliceio/engine/api/types/time"
 	"github.com/maliceio/engine/api/types/versions"
-	"github.com/maliceio/engine/pkg/ioutils"
 	pkgerrors "github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 )
 
@@ -35,9 +35,9 @@ func (s *systemRouter) getInfo(ctx context.Context, w http.ResponseWriter, r *ht
 	if err != nil {
 		return err
 	}
-	if s.cluster != nil {
-		info.Swarm = s.cluster.Info()
-	}
+	// if s.cluster != nil {
+	// 	info.Swarm = s.cluster.Info()
+	// }
 
 	if versions.LessThan(httputils.VersionFromContext(ctx), "1.25") {
 		// TODO: handle this conversion in engine-api
@@ -50,13 +50,13 @@ func (s *systemRouter) getInfo(ctx context.Context, w http.ResponseWriter, r *ht
 			ExecutionDriver: "<not supported>",
 		}
 		nameOnlySecurityOptions := []string{}
-		kvSecOpts, err := types.DecodeSecurityOptions(old.SecurityOptions)
-		if err != nil {
-			return err
-		}
-		for _, s := range kvSecOpts {
-			nameOnlySecurityOptions = append(nameOnlySecurityOptions, s.Name)
-		}
+		// kvSecOpts, err := types.DecodeSecurityOptions(old.SecurityOptions)
+		// if err != nil {
+		// 	return err
+		// }
+		// for _, s := range kvSecOpts {
+		// 	nameOnlySecurityOptions = append(nameOnlySecurityOptions, s.Name)
+		// }
 		old.SecurityOptions = nameOnlySecurityOptions
 		return httputils.WriteJSON(w, http.StatusOK, old)
 	}
@@ -75,11 +75,11 @@ func (s *systemRouter) getDiskUsage(ctx context.Context, w http.ResponseWriter, 
 	if err != nil {
 		return err
 	}
-	builderSize, err := s.builder.DiskUsage()
+	// builderSize, err := s.builder.DiskUsage()
 	if err != nil {
 		return pkgerrors.Wrap(err, "error getting build cache usage")
 	}
-	du.BuilderSize = builderSize
+	// du.BuilderSize = builderSize
 
 	return httputils.WriteJSON(w, http.StatusOK, du)
 }

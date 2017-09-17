@@ -15,7 +15,7 @@
   "editor.cursorBlinking": "solid",
   // Very important: Install this plugin: https://github.com/be5invis/vscode-custom-css
   // you'll need to change this to an absolute path on your computer
-  "vscode_custom_css.imports": ["/Users/user/.vscodestyles.css"],
+  "vscode_custom_css.imports": ["/Users/blacktop/.vscodestyles.css"],
   "editor.renderWhitespace": "all",
   "go.useLanguageServer": true,
   "git.ignoreLimitWarning": true

@@ -8,10 +8,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/docker/distribution/reference"
 	registrytypes "github.com/docker/docker/api/types/registry"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 )
 
 // ServiceOptions holds command line options.

@@ -7,17 +7,16 @@ import (
 	"net"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"strconv"
 
-	"github.com/maliceio/engine/cmd/dockerd/hack"
+	"github.com/docker/libnetwork/portallocator"
+	"github.com/maliceio/engine/cmd/maliced/hack"
 	"github.com/maliceio/engine/daemon"
 	"github.com/maliceio/engine/libcontainerd"
-	"github.com/docker/libnetwork/portallocator"
 	"golang.org/x/sys/unix"
 )
 
-const defaultDaemonConfigFile = "/etc/docker/daemon.json"
+const defaultDaemonConfigFile = "/etc/malice/daemon.json"
 
 // setDefaultUmask sets the umask to 0022 to avoid problems
 // caused by custom umask
@@ -32,7 +31,7 @@ func setDefaultUmask() error {
 }
 
 func getDaemonConfDir(_ string) string {
-	return "/etc/docker"
+	return "/etc/malice"
 }
 
 // setupConfigReloadTrap configures the USR2 signal to reload the configuration.
@@ -67,20 +66,8 @@ func (cli *DaemonCli) getPlatformRemoteOptions() []libcontainerd.RemoteOption {
 	return opts
 }
 
-// getLibcontainerdRoot gets the root directory for libcontainerd/containerd to
-// store their state.
-func (cli *DaemonCli) getLibcontainerdRoot() string {
-	return filepath.Join(cli.Config.ExecRoot, "libcontainerd")
-}
-
-// getSwarmRunRoot gets the root directory for swarm to store runtime state
-// For example, the control socket
-func (cli *DaemonCli) getSwarmRunRoot() string {
-	return filepath.Join(cli.Config.ExecRoot, "swarm")
-}
-
 // allocateDaemonPort ensures that there are no containers
-// that try to use any port allocated for the docker server.
+// that try to use any port allocated for the malice server.
 func allocateDaemonPort(addr string) error {
 	host, port, err := net.SplitHostPort(addr)
 	if err != nil {

@@ -6,13 +6,12 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
 	"github.com/maliceio/engine/api/server/httputils"
 	"github.com/maliceio/engine/api/server/middleware"
 	"github.com/maliceio/engine/api/server/router"
-	"github.com/maliceio/engine/api/server/router/debug"
-	"github.com/maliceio/engine/malice/version"
-	"github.com/sirupsen/logrus"
+	"github.com/moby/moby/dockerversion"
 	"golang.org/x/net/context"
 )
 
@@ -23,7 +22,6 @@ const versionMatcher = "/v{version:[0-9.]+}"
 // Config provides the configuration for the API server
 type Config struct {
 	Logging     bool
-	EnableCors  bool
 	CorsHeaders string
 	Version     string
 	SocketGroup string
@@ -127,7 +125,7 @@ func (s *Server) makeHTTPHandler(handler httputils.APIFunc) http.HandlerFunc {
 		// apply to all requests. Data that is specific to the
 		// immediate function being called should still be passed
 		// as 'args' on the function call.
-		ctx := context.WithValue(context.Background(), version.UAStringKey, r.Header.Get("User-Agent"))
+		ctx := context.WithValue(context.Background(), dockerversion.UAStringKey, r.Header.Get("User-Agent"))
 		handlerFunc := s.handlerWithGlobalMiddlewares(handler)
 
 		vars := mux.Vars(r)
@@ -179,12 +177,12 @@ func (s *Server) createMux() *mux.Router {
 		}
 	}
 
-	debugRouter := debug.NewRouter()
-	s.routers = append(s.routers, debugRouter)
-	for _, r := range debugRouter.Routes() {
-		f := s.makeHTTPHandler(r.Handler())
-		m.Path("/debug" + r.Path()).Handler(f)
-	}
+	// debugRouter := debug.NewRouter()
+	// s.routers = append(s.routers, debugRouter)
+	// for _, r := range debugRouter.Routes() {
+	// 	f := s.makeHTTPHandler(r.Handler())
+	// 	m.Path("/debug" + r.Path()).Handler(f)
+	// }
 
 	notFoundHandler := httputils.MakeErrorHandler(pageNotFoundError{})
 	m.HandleFunc(versionMatcher+"/{path:.*}", notFoundHandler)
