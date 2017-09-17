@@ -3,10 +3,10 @@ package main
 import (
 	"testing"
 
+	"github.com/Sirupsen/logrus"
+	"github.com/gotestyourself/gotestyourself/fs"
 	"github.com/maliceio/engine/daemon/config"
 	"github.com/maliceio/engine/internal/testutil"
-	"github.com/gotestyourself/gotestyourself/fs"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

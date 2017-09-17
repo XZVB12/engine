@@ -24,7 +24,6 @@ import (
 	pluginrouter "github.com/maliceio/engine/api/server/router/plugin"
 	sessionrouter "github.com/maliceio/engine/api/server/router/session"
 	systemrouter "github.com/maliceio/engine/api/server/router/system"
-	"github.com/maliceio/engine/api/server/router/volume"
 	"github.com/maliceio/engine/cli/debug"
 	"github.com/maliceio/engine/daemon"
 	"github.com/maliceio/engine/daemon/config"
@@ -499,7 +498,7 @@ func initRouter(opts routerOptions) {
 		// container.NewRouter(opts.daemon, decoder),
 		// image.NewRouter(opts.daemon, decoder),
 		systemrouter.NewRouter(opts.daemon),
-		volume.NewRouter(opts.daemon),
+		// volume.NewRouter(opts.daemon),
 		// build.NewRouter(opts.buildBackend, opts.daemon),
 		sessionrouter.NewRouter(opts.sessionManager),
 		// swarmrouter.NewRouter(opts.cluster),
