@@ -17,14 +17,13 @@ import (
 
 	containerd "github.com/containerd/containerd/api/grpc/types"
 	"github.com/maliceio/engine/api/types"
-	containertypes "github.com/maliceio/engine/api/types/container"
 	"github.com/maliceio/engine/api/types/swarm"
-	"github.com/maliceio/engine/container"
 	"github.com/maliceio/engine/daemon/config"
 	"github.com/maliceio/engine/daemon/discovery"
 	"github.com/maliceio/engine/daemon/events"
 	"github.com/maliceio/engine/daemon/exec"
 	"github.com/maliceio/engine/daemon/logger"
+	"github.com/maliceio/engine/plugin"
 	"github.com/sirupsen/logrus"
 
 	"github.com/docker/docker/pkg/containerfs"
@@ -50,7 +49,6 @@ import (
 	"github.com/maliceio/engine/plugin"
 	refstore "github.com/maliceio/engine/reference"
 	"github.com/maliceio/engine/registry"
-	"github.com/maliceio/engine/runconfig"
 	volumedrivers "github.com/maliceio/engine/volume/drivers"
 	"github.com/maliceio/engine/volume/local"
 	"github.com/maliceio/engine/volume/store"
@@ -78,7 +76,6 @@ type Daemon struct {
 	idIndex          *truncindex.TruncIndex
 	configStore      *config.Config
 	statsCollector   *stats.Collector
-	defaultLogConfig containertypes.LogConfig
 	RegistryService  registry.Service
 	EventsService    *events.Events
 	netController    libnetwork.NetworkController
@@ -89,22 +86,18 @@ type Daemon struct {
 	apparmorEnabled  bool
 	shutdown         bool
 	idMappings       *idtools.IDMappings
-	stores           map[string]daemonStore // By container target platform
+	stores           map[string]daemonStore // By plugin target platform
 	referenceStore   refstore.Store
 	PluginStore      *plugin.Store // todo: remove
 	pluginManager    *plugin.Manager
 	linkIndex        *linkIndex
 
-	defaultIsolation      containertypes.Isolation // Default isolation mode on Windows
 	clusterProvider       cluster.Provider
 	cluster               Cluster
 	genericResources      []swarm.GenericResource
 	metricsPluginListener net.Listener
 
 	machineMemory uint64
-
-	seccompProfile     []byte
-	seccompProfilePath string
 
 	diskUsageRunning int32
 	pruneRunning     int32
@@ -123,9 +116,9 @@ func (daemon *Daemon) StoreHosts(hosts []string) {
 }
 
 func (daemon *Daemon) restore() error {
-	containers := make(map[string]*container.Container)
+	plugins := make(map[string]*plugin.Plugin)
 
-	logrus.Info("Loading containers: start.")
+	logrus.Info("Loading plugins: start.")
 
 	dir, err := ioutil.ReadDir(daemon.repository)
 	if err != nil {
@@ -134,55 +127,55 @@ func (daemon *Daemon) restore() error {
 
 	for _, v := range dir {
 		id := v.Name()
-		container, err := daemon.load(id)
+		plugin, err := daemon.load(id)
 		if err != nil {
-			logrus.Errorf("Failed to load container %v: %v", id, err)
+			logrus.Errorf("Failed to load plugin %v: %v", id, err)
 			continue
 		}
 
-		// Ignore the container if it does not support the current driver being used by the graph
-		currentDriverForContainerPlatform := daemon.stores[container.Platform].graphDriver
-		if (container.Driver == "" && currentDriverForContainerPlatform == "aufs") || container.Driver == currentDriverForContainerPlatform {
-			rwlayer, err := daemon.stores[container.Platform].layerStore.GetRWLayer(container.ID)
+		// Ignore the plugin if it does not support the current driver being used by the graph
+		currentDriverForContainerPlatform := daemon.stores[plugin.Platform].graphDriver
+		if (plugin.Driver == "" && currentDriverForContainerPlatform == "aufs") || plugin.Driver == currentDriverForContainerPlatform {
+			rwlayer, err := daemon.stores[plugin.Platform].layerStore.GetRWLayer(plugin.ID)
 			if err != nil {
-				logrus.Errorf("Failed to load container mount %v: %v", id, err)
+				logrus.Errorf("Failed to load plugin mount %v: %v", id, err)
 				continue
 			}
-			container.RWLayer = rwlayer
-			logrus.Debugf("Loaded container %v", container.ID)
+			plugin.RWLayer = rwlayer
+			logrus.Debugf("Loaded plugin %v", plugin.ID)
 
-			containers[container.ID] = container
+			containers[plugin.ID] = plugin
 		} else {
-			logrus.Debugf("Cannot load container %s because it was created with another graph driver.", container.ID)
+			logrus.Debugf("Cannot load plugin %s because it was created with another graph driver.", plugin.ID)
 		}
 	}
 
-	removeContainers := make(map[string]*container.Container)
-	restartContainers := make(map[*container.Container]chan struct{})
+	removePlugins := make(map[string]*plugin.Plugin)
+	restartPlugins := make(map[*plugin.Plugin]chan struct{})
 	activeSandboxes := make(map[string]interface{})
-	for id, c := range containers {
-		if err := daemon.registerName(c); err != nil {
-			logrus.Errorf("Failed to register container name %s: %s", c.ID, err)
+	for id, p := range containers {
+		if err := daemon.registerName(p); err != nil {
+			logrus.Errorf("Failed to register plugin name %s: %s", p.ID, err)
 			delete(containers, id)
 			continue
 		}
 		// verify that all volumes valid and have been migrated from the pre-1.7 layout
-		if err := daemon.verifyVolumesInfo(c); err != nil {
-			// don't skip the container due to error
-			logrus.Errorf("Failed to verify volumes for container '%s': %v", c.ID, err)
+		if err := daemon.verifyVolumesInfo(p); err != nil {
+			// don't skip the plugin due to error
+			logrus.Errorf("Failed to verify volumes for plugin '%s': %v", p.ID, err)
 		}
-		if err := daemon.Register(c); err != nil {
-			logrus.Errorf("Failed to register container %s: %s", c.ID, err)
+		if err := daemon.Register(p); err != nil {
+			logrus.Errorf("Failed to register plugin %s: %s", p.ID, err)
 			delete(containers, id)
 			continue
 		}
 
-		// The LogConfig.Type is empty if the container was created before malice 1.12 with default log driver.
+		// The LogConfig.Type is empty if the plugin was created before malice 1.12 with default log driver.
 		// We should rewrite it to use the daemon defaults.
 		// Fixes https://github.com/docker/docker/issues/22536
-		if c.HostConfig.LogConfig.Type == "" {
-			if err := daemon.mergeAndVerifyLogConfig(&c.HostConfig.LogConfig); err != nil {
-				logrus.Errorf("Failed to verify log config for container %s: %q", c.ID, err)
+		if p.HostConfig.LogConfig.Type == "" {
+			if err := daemon.mergeAndVerifyLogConfig(&p.HostConfig.LogConfig); err != nil {
+				logrus.Errorf("Failed to verify log config for plugin %s: %q", p.ID, err)
 				continue
 			}
 		}
@@ -190,89 +183,89 @@ func (daemon *Daemon) restore() error {
 
 	var wg sync.WaitGroup
 	var mapLock sync.Mutex
-	for _, c := range containers {
+	for _, p := range plugins {
 		wg.Add(1)
-		go func(c *container.Container) {
+		go func(p *plugin.Plugin) {
 			defer wg.Done()
-			daemon.backportMountSpec(c)
-			if err := daemon.checkpointAndSave(c); err != nil {
-				logrus.WithError(err).WithField("container", c.ID).Error("error saving backported mountspec to disk")
+			daemon.backportMountSpec(p)
+			if err := daemon.checkpointAndSave(p); err != nil {
+				logrus.WithError(err).WithField("plugin", p.ID).Error("error saving backported mountspec to disk")
 			}
 
-			daemon.setStateCounter(c)
-			if c.IsRunning() || c.IsPaused() {
-				c.RestartManager().Cancel() // manually start containers because some need to wait for swarm networking
-				if err := daemon.containerd.Restore(c.ID, c.InitializeStdio); err != nil {
-					logrus.Errorf("Failed to restore %s with containerd: %s", c.ID, err)
+			daemon.setStateCounter(p)
+			if p.IsRunning() || p.IsPaused() {
+				p.RestartManager().Cancel() // manually start containers because some need to wait for swarm networking
+				if err := daemon.containerd.Restore(p.ID, p.InitializeStdio); err != nil {
+					logrus.Errorf("Failed to restore %s with containerd: %s", p.ID, err)
 					return
 				}
 
-				// we call Mount and then Unmount to get BaseFs of the container
-				if err := daemon.Mount(c); err != nil {
+				// we call Mount and then Unmount to get BaseFs of the plugin
+				if err := daemon.Mount(p); err != nil {
 					// The mount is unlikely to fail. However, in case mount fails
-					// the container should be allowed to restore here. Some functionalities
-					// (like malice exec -u user) might be missing but container is able to be
+					// the plugin should be allowed to restore here. Some functionalities
+					// (like malice exec -u user) might be missing but plugin is able to be
 					// stopped/restarted/removed.
 					// See #29365 for related information.
 					// The error is only logged here.
-					logrus.Warnf("Failed to mount container on getting BaseFs path %v: %v", c.ID, err)
+					logrus.Warnf("Failed to mount plugin on getting BaseFs path %v: %v", p.ID, err)
 				} else {
-					if err := daemon.Unmount(c); err != nil {
-						logrus.Warnf("Failed to umount container on getting BaseFs path %v: %v", c.ID, err)
+					if err := daemon.Unmount(p); err != nil {
+						logrus.Warnf("Failed to umount plugin on getting BaseFs path %v: %v", p.ID, err)
 					}
 				}
 
-				c.ResetRestartManager(false)
-				if !c.HostConfig.NetworkMode.IsContainer() && c.IsRunning() {
-					options, err := daemon.buildSandboxOptions(c)
+				p.ResetRestartManager(false)
+				if !p.HostConfig.NetworkMode.IsContainer() && p.IsRunning() {
+					options, err := daemon.buildSandboxOptions(p)
 					if err != nil {
-						logrus.Warnf("Failed build sandbox option to restore container %s: %v", c.ID, err)
+						logrus.Warnf("Failed build sandbox option to restore plugin %s: %v", p.ID, err)
 					}
 					mapLock.Lock()
-					activeSandboxes[c.NetworkSettings.SandboxID] = options
+					activeSandboxes[p.NetworkSettings.SandboxID] = options
 					mapLock.Unlock()
 				}
 
 			}
 			// fixme: only if not running
 			// get list of containers we need to restart
-			if !c.IsRunning() && !c.IsPaused() {
+			if !p.IsRunning() && !p.IsPaused() {
 				// Do not autostart containers which
 				// has endpoints in a swarm scope
 				// network yet since the cluster is
 				// not initialized yet. We will start
 				// it after the cluster is
 				// initialized.
-				if daemon.configStore.AutoRestart && c.ShouldRestart() && !c.NetworkSettings.HasSwarmEndpoint {
+				if daemon.configStore.AutoRestart && p.ShouldRestart() && !p.NetworkSettings.HasSwarmEndpoint {
 					mapLock.Lock()
-					restartContainers[c] = make(chan struct{})
+					restartContainers[p] = make(chan struct{})
 					mapLock.Unlock()
-				} else if c.HostConfig != nil && c.HostConfig.AutoRemove {
+				} else if p.HostConfig != nil && p.HostConfig.AutoRemove {
 					mapLock.Lock()
-					removeContainers[c.ID] = c
+					removeContainers[p.ID] = p
 					mapLock.Unlock()
 				}
 			}
 
-			c.Lock()
-			if c.RemovalInProgress {
+			p.Lock()
+			if p.RemovalInProgress {
 				// We probably crashed in the middle of a removal, reset
 				// the flag.
 				//
-				// We DO NOT remove the container here as we do not
+				// We DO NOT remove the plugin here as we do not
 				// know if the user had requested for either the
 				// associated volumes, network links or both to also
-				// be removed. So we put the container in the "dead"
+				// be removed. So we put the plugin in the "dead"
 				// state and leave further processing up to them.
-				logrus.Debugf("Resetting RemovalInProgress flag from %v", c.ID)
-				c.RemovalInProgress = false
-				c.Dead = true
-				if err := c.CheckpointTo(daemon.containersReplica); err != nil {
-					logrus.Errorf("Failed to update container %s state: %v", c.ID, err)
+				logrus.Debugf("Resetting RemovalInProgress flag from %v", p.ID)
+				p.RemovalInProgress = false
+				p.Dead = true
+				if err := p.CheckpointTo(daemon.containersReplica); err != nil {
+					logrus.Errorf("Failed to update plugin %s state: %v", p.ID, err)
 				}
 			}
-			c.Unlock()
-		}(c)
+			p.Unlock()
+		}(p)
 	}
 	wg.Wait()
 	daemon.netController, err = daemon.initNetworkController(daemon.configStore, activeSandboxes)
@@ -281,24 +274,24 @@ func (daemon *Daemon) restore() error {
 	}
 
 	// Now that all the containers are registered, register the links
-	for _, c := range containers {
-		if err := daemon.registerLinks(c, c.HostConfig); err != nil {
-			logrus.Errorf("failed to register link for container %s: %v", c.ID, err)
+	for _, p := range containers {
+		if err := daemon.registerLinks(p, p.HostConfig); err != nil {
+			logrus.Errorf("failed to register link for plugin %s: %v", p.ID, err)
 		}
 	}
 
 	group := sync.WaitGroup{}
-	for c, notifier := range restartContainers {
+	for p, notifier := range restartContainers {
 		group.Add(1)
 
-		go func(c *container.Container, chNotify chan struct{}) {
+		go func(p *plugin.Plugin, chNotify chan struct{}) {
 			defer group.Done()
 
-			logrus.Debugf("Starting container %s", c.ID)
+			logrus.Debugf("Starting plugin %s", p.ID)
 
 			// ignore errors here as this is a best effort to wait for children to be
-			//   running before we try to start the container
-			children := daemon.children(c)
+			//   running before we try to start the plugin
+			children := daemon.children(p)
 			timeout := time.After(5 * time.Second)
 			for _, child := range children {
 				if notifier, exists := restartContainers[child]; exists {
@@ -310,12 +303,12 @@ func (daemon *Daemon) restore() error {
 			}
 
 			// Make sure networks are available before starting
-			daemon.waitForNetworks(c)
-			if err := daemon.containerStart(c, "", "", true); err != nil {
-				logrus.Errorf("Failed to start container %s: %s", c.ID, err)
+			daemon.waitForNetworks(p)
+			if err := daemon.containerStart(p, "", "", true); err != nil {
+				logrus.Errorf("Failed to start plugin %s: %s", p.ID, err)
 			}
 			close(chNotify)
-		}(c, notifier)
+		}(p, notifier)
 
 	}
 	group.Wait()
@@ -325,7 +318,7 @@ func (daemon *Daemon) restore() error {
 		removeGroup.Add(1)
 		go func(cid string) {
 			if err := daemon.ContainerRm(cid, &types.ContainerRmConfig{ForceRemove: true, RemoveVolume: true}); err != nil {
-				logrus.Errorf("Failed to remove container %s: %s", cid, err)
+				logrus.Errorf("Failed to remove plugin %s: %s", cid, err)
 			}
 			removeGroup.Done()
 		}(id)
@@ -337,25 +330,25 @@ func (daemon *Daemon) restore() error {
 	// This shouldn't cause any issue running on the containers that already had this run.
 	// This must be run after any containers with a restart policy so that containerized plugins
 	// can have a chance to be running before we try to initialize them.
-	for _, c := range containers {
-		// if the container has restart policy, do not
+	for _, p := range containers {
+		// if the plugin has restart policy, do not
 		// prepare the mountpoints since it has been done on restarting.
-		// This is to speed up the daemon start when a restart container
+		// This is to speed up the daemon start when a restart plugin
 		// has a volume and the volume driver is not available.
-		if _, ok := restartContainers[c]; ok {
+		if _, ok := restartContainers[p]; ok {
 			continue
-		} else if _, ok := removeContainers[c.ID]; ok {
-			// container is automatically removed, skip it.
+		} else if _, ok := removeContainers[p.ID]; ok {
+			// plugin is automatically removed, skip it.
 			continue
 		}
 
 		group.Add(1)
-		go func(c *container.Container) {
+		go func(p *plugin.Plugin) {
 			defer group.Done()
-			if err := daemon.prepareMountPoints(c); err != nil {
+			if err := daemon.prepareMountPoints(p); err != nil {
 				logrus.Error(err)
 			}
-		}(c)
+		}(p)
 	}
 
 	group.Wait()
@@ -365,23 +358,23 @@ func (daemon *Daemon) restore() error {
 	return nil
 }
 
-// RestartSwarmContainers restarts any autostart container which has a
+// RestartSwarmContainers restarts any autostart plugin which has a
 // swarm endpoint.
 func (daemon *Daemon) RestartSwarmContainers() {
 	group := sync.WaitGroup{}
-	for _, c := range daemon.List() {
-		if !c.IsRunning() && !c.IsPaused() {
+	for _, p := range daemon.List() {
+		if !p.IsRunning() && !p.IsPaused() {
 			// Autostart all the containers which has a
 			// swarm endpoint now that the cluster is
 			// initialized.
-			if daemon.configStore.AutoRestart && c.ShouldRestart() && c.NetworkSettings.HasSwarmEndpoint {
+			if daemon.configStore.AutoRestart && p.ShouldRestart() && p.NetworkSettings.HasSwarmEndpoint {
 				group.Add(1)
-				go func(c *container.Container) {
+				go func(p *plugin.Plugin) {
 					defer group.Done()
-					if err := daemon.containerStart(c, "", "", true); err != nil {
+					if err := daemon.containerStart(p, "", "", true); err != nil {
 						logrus.Error(err)
 					}
-				}(c)
+				}(p)
 			}
 		}
 
@@ -390,23 +383,23 @@ func (daemon *Daemon) RestartSwarmContainers() {
 }
 
 // waitForNetworks is used during daemon initialization when starting up containers
-// It ensures that all of a container's networks are available before the daemon tries to start the container.
+// It ensures that all of a plugin's networks are available before the daemon tries to start the plugin.
 // In practice it just makes sure the discovery service is available for containers which use a network that require discovery.
-func (daemon *Daemon) waitForNetworks(c *container.Container) {
+func (daemon *Daemon) waitForNetworks(p *plugin.Plugin) {
 	if daemon.discoveryWatcher == nil {
 		return
 	}
-	// Make sure if the container has a network that requires discovery that the discovery service is available before starting
-	for netName := range c.NetworkSettings.Networks {
+	// Make sure if the plugin has a network that requires discovery that the discovery service is available before starting
+	for netName := range p.NetworkSettings.Networks {
 		// If we get `ErrNoSuchNetwork` here, we can assume that it is due to discovery not being ready
-		// Most likely this is because the K/V store used for discovery is in a container and needs to be started
+		// Most likely this is because the K/V store used for discovery is in a plugin and needs to be started
 		if _, err := daemon.netController.NetworkByName(netName); err != nil {
 			if _, ok := err.(libnetwork.ErrNoSuchNetwork); !ok {
 				continue
 			}
 			// use a longish timeout here due to some slowdowns in libnetwork if the k/v store is on anything other than --net=host
 			// FIXME: why is this slow???
-			logrus.Debugf("Container %s waiting for network to be ready", c.Name)
+			logrus.Debugf("Container %s waiting for network to be ready", p.Name)
 			select {
 			case <-daemon.discoveryWatcher.ReadyCh():
 			case <-time.After(60 * time.Second):
@@ -416,20 +409,20 @@ func (daemon *Daemon) waitForNetworks(c *container.Container) {
 	}
 }
 
-func (daemon *Daemon) children(c *container.Container) map[string]*container.Container {
-	return daemon.linkIndex.children(c)
+func (daemon *Daemon) children(p *plugin.Plugin) map[string]*plugin.Plugin {
+	return daemon.linkIndex.children(p)
 }
 
-// parents returns the names of the parent containers of the container
+// parents returns the names of the parent containers of the plugin
 // with the given name.
-func (daemon *Daemon) parents(c *container.Container) map[string]*container.Container {
-	return daemon.linkIndex.parents(c)
+func (daemon *Daemon) parents(p *plugin.Plugin) map[string]*plugin.Plugin {
+	return daemon.linkIndex.parents(p)
 }
 
-func (daemon *Daemon) registerLink(parent, child *container.Container, alias string) error {
+func (daemon *Daemon) registerLink(parent, child *plugin.Plugin, alias string) error {
 	fullName := path.Join(parent.Name, alias)
 	if err := daemon.containersReplica.ReserveName(fullName, child.ID); err != nil {
-		if err == container.ErrNameReserved {
+		if err == plugin.ErrNameReserved {
 			logrus.Warnf("error registering link for %s, to %s, as alias %s, ignoring: %v", parent.ID, child.ID, alias, err)
 			return nil
 		}
@@ -708,11 +701,11 @@ func NewDaemon(config *config.Config, registryService registry.Service, containe
 
 	// We have a single tag/reference store for the daemon globally. However, it's
 	// stored under the graphdriver. On host platforms which only support a single
-	// container OS, but multiple selectable graphdrivers, this means depending on which
+	// plugin OS, but multiple selectable graphdrivers, this means depending on which
 	// graphdriver is chosen, the global reference store is under there. For
-	// platforms which support multiple container operating systems, this is slightly
+	// platforms which support multiple plugin operating systems, this is slightly
 	// more problematic as where does the global ref store get located? Fortunately,
-	// for Windows, which is currently the only daemon supporting multiple container
+	// for Windows, which is currently the only daemon supporting multiple plugin
 	// operating systems, the list of graphdrivers available isn't user configurable.
 	// For backwards compatibility, we just put it under the windowsfilter
 	// directory regardless.
@@ -749,7 +742,7 @@ func NewDaemon(config *config.Config, registryService registry.Service, containe
 	}
 
 	sysInfo := sysinfo.New(false)
-	// Check if Devices cgroup is mounted, it is hard requirement for container security,
+	// Check if Devices cgroup is mounted, it is hard requirement for plugin security,
 	// on Linux.
 	if runtime.GOOS == "linux" && !sysInfo.CgroupDevicesEnabled {
 		return nil, errors.New("Devices cgroup isn't mounted")
@@ -757,18 +750,14 @@ func NewDaemon(config *config.Config, registryService registry.Service, containe
 
 	d.ID = trustKey.PublicKey().KeyID()
 	d.repository = daemonRepo
-	d.containers = container.NewMemoryStore()
-	if d.containersReplica, err = container.NewViewDB(); err != nil {
+	d.containers = plugin.NewMemoryStore()
+	if d.containersReplica, err = plugin.NewViewDB(); err != nil {
 		return nil, err
 	}
 	d.execCommands = exec.NewStore()
 	d.trustKey = trustKey
 	d.idIndex = truncindex.NewTruncIndex([]string{})
 	d.statsCollector = d.newStatsCollector(1 * time.Second)
-	d.defaultLogConfig = containertypes.LogConfig{
-		Type:   config.LogConfig.Type,
-		Config: config.LogConfig.Config,
-	}
 	d.EventsService = eventsService
 	d.volumes = volStore
 	d.root = config.Root
@@ -829,31 +818,31 @@ func (daemon *Daemon) waitForStartupDone() {
 	<-daemon.startupDone
 }
 
-func (daemon *Daemon) shutdownContainer(c *container.Container) error {
-	stopTimeout := c.StopTimeout()
+func (daemon *Daemon) shutdownContainer(p *plugin.Plugin) error {
+	stopTimeout := p.StopTimeout()
 
-	// If container failed to exit in stopTimeout seconds of SIGTERM, then using the force
-	if err := daemon.containerStop(c, stopTimeout); err != nil {
-		return fmt.Errorf("Failed to stop container %s with error: %v", c.ID, err)
+	// If plugin failed to exit in stopTimeout seconds of SIGTERM, then using the force
+	if err := daemon.containerStop(p, stopTimeout); err != nil {
+		return fmt.Errorf("Failed to stop plugin %s with error: %v", p.ID, err)
 	}
 
-	// Wait without timeout for the container to exit.
+	// Wait without timeout for the plugin to exit.
 	// Ignore the result.
-	<-c.Wait(context.Background(), container.WaitConditionNotRunning)
+	<-p.Wait(context.Background(), plugin.WaitConditionNotRunning)
 	return nil
 }
 
-// ShutdownTimeout returns the shutdown timeout based on the max stopTimeout of the containers,
+// ShutdownTimeout returns the shutdown timeout based on the max stopTimeout of the plugins,
 // and is limited by daemon's ShutdownTimeout.
 func (daemon *Daemon) ShutdownTimeout() int {
 	// By default we use daemon's ShutdownTimeout.
 	shutdownTimeout := daemon.configStore.ShutdownTimeout
 
 	graceTimeout := 5
-	if daemon.containers != nil {
-		for _, c := range daemon.containers.List() {
+	if daemon.plugins != nil {
+		for _, p := range daemon.plugins.List() {
 			if shutdownTimeout >= 0 {
-				stopTimeout := c.StopTimeout()
+				stopTimeout := p.StopTimeout()
 				if stopTimeout < 0 {
 					shutdownTimeout = -1
 				} else {
@@ -884,19 +873,19 @@ func (daemon *Daemon) Shutdown() error {
 
 	if daemon.containers != nil {
 		logrus.Debugf("start clean shutdown of all containers with a %d seconds timeout...", daemon.configStore.ShutdownTimeout)
-		daemon.containers.ApplyAll(func(c *container.Container) {
-			if !c.IsRunning() {
+		daemon.containers.ApplyAll(func(p *plugin.Plugin) {
+			if !p.IsRunning() {
 				return
 			}
-			logrus.Debugf("stopping %s", c.ID)
-			if err := daemon.shutdownContainer(c); err != nil {
-				logrus.Errorf("Stop container error: %v", err)
+			logrus.Debugf("stopping %s", p.ID)
+			if err := daemon.shutdownPlugin(p); err != nil {
+				logrus.Errorf("Stop plugin error: %v", err)
 				return
 			}
-			if mountid, err := daemon.stores[c.Platform].layerStore.GetMountID(c.ID); err == nil {
-				daemon.cleanupMountsByID(mountid)
-			}
-			logrus.Debugf("container stopped %s", c.ID)
+			// if mountid, err := daemon.stores[p.Platform].layerStore.GetMountID(p.ID); err == nil {
+			// 	daemon.cleanupMountsByID(mountid)
+			// }
+			logrus.Debugf("plugin stopped %s", p.ID)
 		})
 	}
 
@@ -1064,8 +1053,8 @@ func (daemon *Daemon) networkOptions(dconfig *config.Config, pg plugingetter.Plu
 	options = append(options, nwconfig.OptionDataDir(dconfig.Root))
 	options = append(options, nwconfig.OptionExecRoot(dconfig.GetExecRoot()))
 
-	dd := runconfig.DefaultDaemonNetworkMode()
-	dn := runconfig.DefaultDaemonNetworkMode().NetworkName()
+	// dd := runconfig.DefaultDaemonNetworkMode()
+	// dn := runconfig.DefaultDaemonNetworkMode().NetworkName()
 	options = append(options, nwconfig.OptionDefaultDriver(string(dd)))
 	options = append(options, nwconfig.OptionDefaultNetwork(dn))
 
@@ -1167,20 +1156,20 @@ func CreateDaemonRoot(config *config.Config) error {
 	return setupDaemonRoot(config, realRoot, idMappings.RootPair())
 }
 
-// checkpointAndSave grabs a container lock to safely call container.CheckpointTo
-func (daemon *Daemon) checkpointAndSave(container *container.Container) error {
-	container.Lock()
-	defer container.Unlock()
-	if err := container.CheckpointTo(daemon.containersReplica); err != nil {
-		return fmt.Errorf("Error saving container state: %v", err)
-	}
-	return nil
-}
+// // checkpointAndSave grabs a plugin lock to safely call plugin.CheckpointTo
+// func (daemon *Daemon) checkpointAndSave(plugin *plugin.Plugin) error {
+// 	plugin.Lock()
+// 	defer plugin.Unlock()
+// 	if err := plugin.CheckpointTo(daemon.containersReplica); err != nil {
+// 		return fmt.Errorf("Error saving plugin state: %v", err)
+// 	}
+// 	return nil
+// }
 
 // because the CLI sends a -1 when it wants to unset the swappiness value
 // we need to clear it on the server side
-func fixMemorySwappiness(resources *containertypes.Resources) {
-	if resources.MemorySwappiness != nil && *resources.MemorySwappiness == -1 {
-		resources.MemorySwappiness = nil
-	}
-}
+// func fixMemorySwappiness(resources *containertypes.Resources) {
+// 	if resources.MemorySwappiness != nil && *resources.MemorySwappiness == -1 {
+// 		resources.MemorySwappiness = nil
+// 	}
+// }

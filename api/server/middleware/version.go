@@ -50,7 +50,7 @@ func (v VersionMiddleware) WrapHandler(handler func(ctx context.Context, w http.
 			return versionUnsupportedError{apiVersion, v.minVersion}
 		}
 
-		header := fmt.Sprintf("Docker/%s (%s)", v.serverVersion, runtime.GOOS)
+		header := fmt.Sprintf("Malice/%s (%s)", v.serverVersion, runtime.GOOS)
 		w.Header().Set("Server", header)
 		w.Header().Set("API-Version", v.defaultVersion)
 		w.Header().Set("OSType", runtime.GOOS)

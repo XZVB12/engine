@@ -6,12 +6,12 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/sirupsen/logrus"
 	"github.com/docker/docker/pkg/reexec"
 	"github.com/docker/docker/pkg/term"
 	"github.com/maliceio/engine/cli"
 	"github.com/maliceio/engine/daemon/config"
 	"github.com/maliceio/engine/malice/version"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 

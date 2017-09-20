@@ -83,8 +83,6 @@ func (cli *DaemonCli) start(opts *daemonOptions) (err error) {
 		FullTimestamp:   true,
 	})
 
-	system.InitLCOW(cli.Config.Experimental)
-
 	if err := setDefaultUmask(); err != nil {
 		return fmt.Errorf("Failed to set umask: %v", err)
 	}
@@ -220,9 +218,6 @@ func (cli *DaemonCli) start(opts *daemonOptions) (err error) {
 
 	// TODO: move into startMetricsServer()
 	if cli.Config.MetricsAddress != "" {
-		if !d.HasExperimental() {
-			return fmt.Errorf("metrics-addr is only supported when experimental is enabled")
-		}
 		if err := startMetricsServer(cli.Config.MetricsAddress); err != nil {
 			return err
 		}
@@ -430,10 +425,6 @@ func loadDaemonCliConfig(opts *daemonOptions) (*config.Config, error) {
 			defaultTrustKeyFile)
 	}
 
-	if flags.Changed("graph") && flags.Changed("data-root") {
-		return nil, fmt.Errorf(`cannot specify both "--graph" and "--data-root" option`)
-	}
-
 	if opts.configFile != "" {
 		c, err := config.MergeDaemonConfigurations(conf, flags, opts.configFile)
 		if err != nil {
@@ -450,14 +441,6 @@ func loadDaemonCliConfig(opts *daemonOptions) (*config.Config, error) {
 
 	if err := config.Validate(conf); err != nil {
 		return nil, err
-	}
-
-	if !conf.V2Only {
-		logrus.Warnf(`The "disable-legacy-registry" option is deprecated and wil be removed in Docker v17.12. Interacting with legacy (v1) registries will no longer be supported in Docker v17.12"`)
-	}
-
-	if flags.Changed("graph") {
-		logrus.Warnf(`The "-g / --graph" flag is deprecated. Please use "--data-root" instead`)
 	}
 
 	// Labels of the docker engine used to allow multiple values associated with the same key.
@@ -510,15 +493,15 @@ func initRouter(opts routerOptions) {
 	// 	routers = append(routers, network.NewRouter(opts.daemon, opts.cluster))
 	// }
 
-	if opts.daemon.HasExperimental() {
-		for _, r := range routers {
-			for _, route := range r.Routes() {
-				if experimental, ok := route.(router.ExperimentalRoute); ok {
-					experimental.Enable()
-				}
-			}
-		}
-	}
+	// if opts.daemon.HasExperimental() {
+	// 	for _, r := range routers {
+	// 		for _, route := range r.Routes() {
+	// 			if experimental, ok := route.(router.ExperimentalRoute); ok {
+	// 				experimental.Enable()
+	// 			}
+	// 		}
+	// 	}
+	// }
 
 	opts.api.InitRouter(routers...)
 }
@@ -526,9 +509,6 @@ func initRouter(opts routerOptions) {
 // TODO: remove this from cli and return the authzMiddleware
 func (cli *DaemonCli) initMiddlewares(s *apiserver.Server, cfg *apiserver.Config, pluginStore plugingetter.PluginGetter) error {
 	v := cfg.Version
-
-	exp := middleware.NewExperimentalMiddleware(cli.Config.Experimental)
-	s.UseMiddleware(exp)
 
 	vm := middleware.NewVersionMiddleware(v, api.DefaultVersion, api.MinVersion)
 	s.UseMiddleware(vm)
