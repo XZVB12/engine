@@ -158,7 +158,7 @@ type CommonConfig struct {
 	MetricsAddress            string `json:"metrics-addr"`
 
 	LogConfig
-	BridgeConfig // bridgeConfig holds bridge network specific configuration.
+	// BridgeConfig // bridgeConfig holds bridge network specific configuration.
 	registry.ServiceOptions
 
 	sync.Mutex

@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/docker/docker/pkg/ioutils"
 	"github.com/maliceio/engine/api"
 	"github.com/maliceio/engine/api/server/httputils"
@@ -17,6 +16,7 @@ import (
 	timetypes "github.com/maliceio/engine/api/types/time"
 	"github.com/maliceio/engine/api/types/versions"
 	pkgerrors "github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 )
 
@@ -179,13 +179,13 @@ func (s *systemRouter) postAuth(ctx context.Context, w http.ResponseWriter, r *h
 	if err != nil {
 		return err
 	}
-	status, token, err := s.backend.AuthenticateToRegistry(ctx, config)
+	status, _, err := s.backend.AuthenticateToRegistry(ctx, config)
 	if err != nil {
 		return err
 	}
 	return httputils.WriteJSON(w, http.StatusOK, &registry.AuthenticateOKBody{
-		Status:        status,
-		IdentityToken: token,
+		Status: status,
+		// PGPKey: pgpkey,
 	})
 }
 

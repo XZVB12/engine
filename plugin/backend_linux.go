@@ -341,7 +341,7 @@ func (pm *Manager) Pull(ctx context.Context, ref reference.Named, name string, m
 		return err
 	}
 
-	refOpt := func(p *v2.Plugin) {
+	refOpt := func(p *Plugin) {
 		p.PluginObj.PluginReference = ref.String()
 	}
 	optsList := make([]CreateOpt, 0, len(opts)+1)
@@ -514,7 +514,7 @@ func (r *pluginReference) Delete(ref reference.Named) (bool, error) {
 
 type pluginConfigStore struct {
 	pm     *Manager
-	plugin *v2.Plugin
+	plugin *Plugin
 }
 
 func (s *pluginConfigStore) Put([]byte) (digest.Digest, error) {
@@ -539,7 +539,7 @@ func (s *pluginConfigStore) RootFSAndPlatformFromConfig(c []byte) (*image.RootFS
 
 type pluginLayerProvider struct {
 	pm     *Manager
-	plugin *v2.Plugin
+	plugin *Plugin
 }
 
 func (p *pluginLayerProvider) Get(id layer.ChainID) (distribution.PushLayer, error) {

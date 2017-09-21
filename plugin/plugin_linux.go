@@ -1,6 +1,6 @@
 // +build linux
 
-package v2
+package plugin
 
 import (
 	"os"

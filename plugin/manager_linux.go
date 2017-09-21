@@ -17,14 +17,13 @@ import (
 	"github.com/docker/docker/pkg/mount"
 	"github.com/docker/docker/pkg/plugins"
 	"github.com/docker/docker/pkg/stringid"
-	"github.com/docker/docker/plugin/v2"
 	"github.com/opencontainers/go-digest"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
 
-func (pm *Manager) enable(p *v2.Plugin, c *controller, force bool) error {
+func (pm *Manager) enable(p *Plugin, c *controller, force bool) error {
 	p.Rootfs = filepath.Join(pm.config.Root, p.PluginObj.ID, "rootfs")
 	if p.IsEnabled() && !force {
 		return errors.Wrap(enabledError(p.Name()), "plugin already enabled")
@@ -78,7 +77,7 @@ func (pm *Manager) enable(p *v2.Plugin, c *controller, force bool) error {
 	return pm.pluginPostStart(p, c)
 }
 
-func (pm *Manager) pluginPostStart(p *v2.Plugin, c *controller) error {
+func (pm *Manager) pluginPostStart(p *Plugin, c *controller) error {
 	sockAddr := filepath.Join(pm.config.ExecRoot, p.GetID(), p.GetSocket())
 	client, err := plugins.NewClientWithTimeout("unix://"+sockAddr, nil, time.Duration(c.timeoutInSecs)*time.Second)
 	if err != nil {
@@ -120,7 +119,7 @@ func (pm *Manager) pluginPostStart(p *v2.Plugin, c *controller) error {
 	return pm.save(p)
 }
 
-func (pm *Manager) restore(p *v2.Plugin) error {
+func (pm *Manager) restore(p *Plugin) error {
 	if err := pm.containerdClient.Restore(p.GetID(), attachToLog(p.GetID())); err != nil {
 		return err
 	}
@@ -143,7 +142,7 @@ func (pm *Manager) restore(p *v2.Plugin) error {
 	return nil
 }
 
-func shutdownPlugin(p *v2.Plugin, c *controller, containerdClient libcontainerd.Client) {
+func shutdownPlugin(p *Plugin, c *controller, containerdClient libcontainerd.Client) {
 	pluginID := p.GetID()
 
 	err := containerdClient.Signal(pluginID, int(unix.SIGTERM))
@@ -169,7 +168,7 @@ func setupRoot(root string) error {
 	return nil
 }
 
-func (pm *Manager) disable(p *v2.Plugin, c *controller) error {
+func (pm *Manager) disable(p *Plugin, c *controller) error {
 	if !p.IsEnabled() {
 		return errors.Wrap(errDisabled(p.Name()), "plugin is already disabled")
 	}
@@ -200,7 +199,7 @@ func (pm *Manager) Shutdown() {
 	mount.Unmount(pm.config.Root)
 }
 
-func (pm *Manager) upgradePlugin(p *v2.Plugin, configDigest digest.Digest, blobsums []digest.Digest, tmpRootFSDir string, privileges *types.PluginPrivileges) (err error) {
+func (pm *Manager) upgradePlugin(p *Plugin, configDigest digest.Digest, blobsums []digest.Digest, tmpRootFSDir string, privileges *types.PluginPrivileges) (err error) {
 	config, err := pm.setupNewPlugin(configDigest, blobsums, privileges)
 	if err != nil {
 		return err
@@ -282,7 +281,7 @@ func (pm *Manager) setupNewPlugin(configDigest digest.Digest, blobsums []digest.
 }
 
 // createPlugin creates a new plugin. take lock before calling.
-func (pm *Manager) createPlugin(name string, configDigest digest.Digest, blobsums []digest.Digest, rootFSDir string, privileges *types.PluginPrivileges, opts ...CreateOpt) (p *v2.Plugin, err error) {
+func (pm *Manager) createPlugin(name string, configDigest digest.Digest, blobsums []digest.Digest, rootFSDir string, privileges *types.PluginPrivileges, opts ...CreateOpt) (p *Plugin, err error) {
 	if err := pm.config.Store.validateName(name); err != nil { // todo: this check is wrong. remove store
 		return nil, validationError{err}
 	}
@@ -292,7 +291,7 @@ func (pm *Manager) createPlugin(name string, configDigest digest.Digest, blobsum
 		return nil, err
 	}
 
-	p = &v2.Plugin{
+	p = &Plugin{
 		PluginObj: types.Plugin{
 			Name:   name,
 			ID:     stringid.GenerateRandomID(),

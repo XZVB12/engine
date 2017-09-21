@@ -11,8 +11,8 @@ import (
 type Plugin struct {
 	mu        sync.RWMutex
 	PluginObj types.Plugin `json:"plugin"` // todo: embed struct
-
-	Config digest.Digest
+	Blobsums  []digest.Digest
+	Config    digest.Digest
 }
 
 // Name returns the plugin name.

@@ -9,7 +9,6 @@ import (
 	"os/signal"
 	"strconv"
 
-	"github.com/docker/libnetwork/portallocator"
 	"github.com/maliceio/engine/cmd/maliced/hack"
 	"golang.org/x/sys/unix"
 )
@@ -84,12 +83,12 @@ func allocateDaemonPort(addr string) error {
 		return fmt.Errorf("failed to lookup %s address in host specification", host)
 	}
 
-	pa := portallocator.Get()
-	for _, hostIP := range hostIPs {
-		if _, err := pa.RequestPort(hostIP, "tcp", intPort); err != nil {
-			return fmt.Errorf("failed to allocate daemon listening port %d (err: %v)", intPort, err)
-		}
-	}
+	// pa := portallocator.Get()
+	// for _, hostIP := range hostIPs {
+	// 	if _, err := pa.RequestPort(hostIP, "tcp", intPort); err != nil {
+	// 		return fmt.Errorf("failed to allocate daemon listening port %d (err: %v)", intPort, err)
+	// 	}
+	// }
 	return nil
 }
 

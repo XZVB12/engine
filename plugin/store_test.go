@@ -8,7 +8,7 @@ import (
 )
 
 func TestFilterByCapNeg(t *testing.T) {
-	p := v2.Plugin{PluginObj: types.Plugin{Name: "test:latest"}}
+	p := Plugin{PluginObj: types.Plugin{Name: "test:latest"}}
 	iType := types.PluginInterfaceType{Capability: "volumedriver", Prefix: "docker", Version: "1.0"}
 	i := types.PluginConfigInterface{Socket: "plugins.sock", Types: []types.PluginInterfaceType{iType}}
 	p.PluginObj.Config.Interface = i
@@ -20,7 +20,7 @@ func TestFilterByCapNeg(t *testing.T) {
 }
 
 func TestFilterByCapPos(t *testing.T) {
-	p := v2.Plugin{PluginObj: types.Plugin{Name: "test:latest"}}
+	p := Plugin{PluginObj: types.Plugin{Name: "test:latest"}}
 
 	iType := types.PluginInterfaceType{Capability: "volumedriver", Prefix: "docker", Version: "1.0"}
 	i := types.PluginConfigInterface{Socket: "plugins.sock", Types: []types.PluginInterfaceType{iType}}

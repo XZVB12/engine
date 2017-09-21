@@ -19,14 +19,10 @@ import (
 	"github.com/maliceio/engine/api/types"
 	"github.com/maliceio/engine/api/types/swarm"
 	"github.com/maliceio/engine/daemon/config"
-	"github.com/maliceio/engine/daemon/discovery"
 	"github.com/maliceio/engine/daemon/events"
-	"github.com/maliceio/engine/daemon/exec"
 	"github.com/maliceio/engine/daemon/logger"
-	"github.com/maliceio/engine/plugin"
 	"github.com/sirupsen/logrus"
 
-	"github.com/docker/docker/pkg/containerfs"
 	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/plugingetter"
 	"github.com/docker/docker/pkg/sysinfo"
@@ -36,33 +32,21 @@ import (
 	"github.com/docker/libnetwork/cluster"
 	nwconfig "github.com/docker/libnetwork/config"
 	"github.com/docker/libtrust"
-	_ "github.com/maliceio/engine/daemon/graphdriver/register"
-	"github.com/maliceio/engine/daemon/initlayer"
-	"github.com/maliceio/engine/daemon/stats"
-	dmetadata "github.com/maliceio/engine/distribution/metadata"
-	"github.com/maliceio/engine/distribution/xfer"
-	"github.com/maliceio/engine/image"
-	"github.com/maliceio/engine/layer"
-	"github.com/maliceio/engine/libcontainerd"
 	"github.com/maliceio/engine/malice/version"
-	"github.com/maliceio/engine/migrate/v1"
 	"github.com/maliceio/engine/plugin"
-	refstore "github.com/maliceio/engine/reference"
 	"github.com/maliceio/engine/registry"
-	volumedrivers "github.com/maliceio/engine/volume/drivers"
-	"github.com/maliceio/engine/volume/local"
-	"github.com/maliceio/engine/volume/store"
+	refstore "github.com/maliceio/engine/registry/reference"
 	"github.com/pkg/errors"
 )
 
 var errSystemNotSupported = errors.New("the Malice daemon is not supported on this platform")
 
 type daemonStore struct {
-	graphDriver               string
-	imageRoot                 string
-	imageStore                image.Store
-	layerStore                layer.Store
-	distributionMetadataStore dmetadata.Store
+	graphDriver string
+	imageRoot   string
+	// imageStore                image.Store
+	// layerStore                layer.Store
+	// distributionMetadataStore dmetadata.Store
 }
 
 // Daemon holds information about the Malice daemon.
@@ -70,27 +54,27 @@ type Daemon struct {
 	ID         string
 	repository string
 
-	execCommands *exec.Store
+	// execCommands *exec.Store
 
-	trustKey         libtrust.PrivateKey
-	idIndex          *truncindex.TruncIndex
-	configStore      *config.Config
-	statsCollector   *stats.Collector
-	RegistryService  registry.Service
-	EventsService    *events.Events
-	netController    libnetwork.NetworkController
-	volumes          *store.VolumeStore
-	discoveryWatcher discovery.Reloader
-	root             string
-	seccompEnabled   bool
-	apparmorEnabled  bool
-	shutdown         bool
-	idMappings       *idtools.IDMappings
-	stores           map[string]daemonStore // By plugin target platform
-	referenceStore   refstore.Store
-	PluginStore      *plugin.Store // todo: remove
-	pluginManager    *plugin.Manager
-	linkIndex        *linkIndex
+	trustKey    libtrust.PrivateKey
+	idIndex     *truncindex.TruncIndex
+	configStore *config.Config
+	// statsCollector   *stats.Collector
+	RegistryService registry.Service
+	EventsService   *events.Events
+	netController   libnetwork.NetworkController
+	// volumes          *store.VolumeStore
+	// discoveryWatcher discovery.Reloader
+	root            string
+	seccompEnabled  bool
+	apparmorEnabled bool
+	shutdown        bool
+	idMappings      *idtools.IDMappings
+	stores          map[string]daemonStore // By plugin target platform
+	referenceStore  refstore.Store
+	PluginStore     *plugin.Store // todo: remove
+	pluginManager   *plugin.Manager
+	linkIndex       *linkIndex
 
 	clusterProvider       cluster.Provider
 	cluster               Cluster
@@ -481,7 +465,7 @@ func (daemon *Daemon) IsSwarmCompatible() error {
 
 // NewDaemon sets up everything for the daemon to be able to service
 // requests from the webserver.
-func NewDaemon(config *config.Config, registryService registry.Service, containerdRemote libcontainerd.Remote, pluginStore *plugin.Store) (daemon *Daemon, err error) {
+func NewDaemon(config *config.Config, registryService registry.Service, pluginStore *plugin.Store) (daemon *Daemon, err error) {
 	setDefaultMtu(config)
 
 	// Ensure that we have a correct root key limit for launching containers.
@@ -631,21 +615,21 @@ func NewDaemon(config *config.Config, registryService registry.Service, containe
 
 	var graphDrivers []string
 	for platform, ds := range d.stores {
-		ls, err := layer.NewStoreFromOptions(layer.StoreOptions{
-			StorePath:                 config.Root,
-			MetadataStorePathTemplate: filepath.Join(config.Root, "image", "%s", "layerdb"),
-			GraphDriver:               ds.graphDriver,
-			GraphDriverOptions:        config.GraphOptions,
-			IDMappings:                idMappings,
-			PluginGetter:              d.PluginStore,
-			ExperimentalEnabled:       config.Experimental,
-			Platform:                  platform,
-		})
-		if err != nil {
-			return nil, err
-		}
-		ds.graphDriver = ls.DriverName() // As layerstore may set the driver
-		ds.layerStore = ls
+		// ls, err := layer.NewStoreFromOptions(layer.StoreOptions{
+		// 	StorePath: config.Root,
+		// 	// MetadataStorePathTemplate: filepath.Join(config.Root, "image", "%s", "layerdb"),
+		// 	GraphDriver:         ds.graphDriver,
+		// 	GraphDriverOptions:  config.GraphOptions,
+		// 	IDMappings:          idMappings,
+		// 	PluginGetter:        d.PluginStore,
+		// 	ExperimentalEnabled: config.Experimental,
+		// 	Platform:            platform,
+		// })
+		// if err != nil {
+		// 	return nil, err
+		// }
+		// ds.graphDriver = ls.DriverName() // As layerstore may set the driver
+		// ds.layerStore = ls
 		d.stores[platform] = ds
 		graphDrivers = append(graphDrivers, ls.DriverName())
 	}
@@ -656,27 +640,27 @@ func NewDaemon(config *config.Config, registryService registry.Service, containe
 	}
 
 	logrus.Debugf("Max Concurrent Downloads: %d", *config.MaxConcurrentDownloads)
-	lsMap := make(map[string]layer.Store)
+	// lsMap := make(map[string]layer.Store)
+	// for platform, ds := range d.stores {
+	// 	lsMap[platform] = ds.layerStore
+	// }
+	// d.downloadManager = xfer.NewLayerDownloadManager(lsMap, *config.MaxConcurrentDownloads)
+	// logrus.Debugf("Max Concurrent Uploads: %d", *config.MaxConcurrentUploads)
+	// d.uploadManager = xfer.NewLayerUploadManager(*config.MaxConcurrentUploads)
 	for platform, ds := range d.stores {
-		lsMap[platform] = ds.layerStore
-	}
-	d.downloadManager = xfer.NewLayerDownloadManager(lsMap, *config.MaxConcurrentDownloads)
-	logrus.Debugf("Max Concurrent Uploads: %d", *config.MaxConcurrentUploads)
-	d.uploadManager = xfer.NewLayerUploadManager(*config.MaxConcurrentUploads)
-	for platform, ds := range d.stores {
-		imageRoot := filepath.Join(config.Root, "image", ds.graphDriver)
-		ifs, err := image.NewFSStoreBackend(filepath.Join(imageRoot, "imagedb"))
-		if err != nil {
-			return nil, err
-		}
+		// imageRoot := filepath.Join(config.Root, "image", ds.graphDriver)
+		// ifs, err := image.NewFSStoreBackend(filepath.Join(imageRoot, "imagedb"))
+		// if err != nil {
+		// 	return nil, err
+		// }
 
-		var is image.Store
-		is, err = image.NewImageStore(ifs, platform, ds.layerStore)
-		if err != nil {
-			return nil, err
-		}
-		ds.imageRoot = imageRoot
-		ds.imageStore = is
+		// var is image.Store
+		// is, err = image.NewImageStore(ifs, platform, ds.layerStore)
+		// if err != nil {
+		// 	return nil, err
+		// }
+		// ds.imageRoot = imageRoot
+		// ds.imageStore = is
 		d.stores[platform] = ds
 	}
 
@@ -717,22 +701,14 @@ func NewDaemon(config *config.Config, registryService registry.Service, containe
 	d.referenceStore = rs
 
 	for platform, ds := range d.stores {
-		dms, err := dmetadata.NewFSMetadataStore(filepath.Join(ds.imageRoot, "distribution"), platform)
-		if err != nil {
-			return nil, err
-		}
+		// dms, err := dmetadata.NewFSMetadataStore(filepath.Join(ds.imageRoot, "distribution"), platform)
+		// if err != nil {
+		// 	return nil, err
+		// }
 
-		ds.distributionMetadataStore = dms
+		// ds.distributionMetadataStore = dms
 		d.stores[platform] = ds
 
-		// No content-addressability migration on Windows as it never supported pre-CA
-		if runtime.GOOS != "windows" {
-			migrationStart := time.Now()
-			if err := v1.Migrate(config.Root, ds.graphDriver, ds.layerStore, ds.imageStore, rs, dms); err != nil {
-				logrus.Errorf("Graph migration failed: %q. Your old graph data was found to be too inconsistent for upgrading to content-addressable storage. Some of the old data was probably not upgraded. We recommend starting over with a clean storage directory if possible.", err)
-			}
-			logrus.Infof("Graph migration to content-addressability took %.2f seconds", time.Since(migrationStart).Seconds())
-		}
 	}
 
 	// Discovery is only enabled when the daemon is launched with an address to advertise.  When
@@ -754,7 +730,7 @@ func NewDaemon(config *config.Config, registryService registry.Service, containe
 	if d.containersReplica, err = plugin.NewViewDB(); err != nil {
 		return nil, err
 	}
-	d.execCommands = exec.NewStore()
+	// d.execCommands = exec.NewStore()
 	d.trustKey = trustKey
 	d.idIndex = truncindex.NewTruncIndex([]string{})
 	d.statsCollector = d.newStatsCollector(1 * time.Second)
@@ -895,13 +871,13 @@ func (daemon *Daemon) Shutdown() error {
 		}
 	}
 
-	for platform, ds := range daemon.stores {
-		if ds.layerStore != nil {
-			if err := ds.layerStore.Cleanup(); err != nil {
-				logrus.Errorf("Error during layer Store.Cleanup(): %v %s", err, platform)
-			}
-		}
-	}
+	// for platform, ds := range daemon.stores {
+	// 	if ds.layerStore != nil {
+	// 		if err := ds.layerStore.Cleanup(); err != nil {
+	// 			logrus.Errorf("Error during layer Store.Cleanup(): %v %s", err, platform)
+	// 		}
+	// 	}
+	// }
 
 	// If we are part of a cluster, clean up cluster's stuff
 	if daemon.clusterProvider != nil {
@@ -976,10 +952,10 @@ func prepareTempDir(rootDir string, rootIDs idtools.IDPair) (string, error) {
 	return tmpDir, idtools.MkdirAllAndChown(tmpDir, 0700, rootIDs)
 }
 
-func (daemon *Daemon) setupInitLayer(initPath containerfs.ContainerFS) error {
-	rootIDs := daemon.idMappings.RootPair()
-	return initlayer.Setup(initPath, rootIDs)
-}
+// func (daemon *Daemon) setupInitLayer(initPath containerfs.ContainerFS) error {
+// 	rootIDs := daemon.idMappings.RootPair()
+// 	return initlayer.Setup(initPath, rootIDs)
+// }
 
 func (daemon *Daemon) setGenericResources(conf *config.Config) error {
 	genericResources, err := config.ParseGenericResources(conf.NodeGenericResources)
@@ -1000,19 +976,19 @@ func setDefaultMtu(conf *config.Config) {
 	conf.Mtu = config.DefaultNetworkMtu
 }
 
-func (daemon *Daemon) configureVolumes(rootIDs idtools.IDPair) (*store.VolumeStore, error) {
-	volumesDriver, err := local.New(daemon.configStore.Root, rootIDs)
-	if err != nil {
-		return nil, err
-	}
+// func (daemon *Daemon) configureVolumes(rootIDs idtools.IDPair) (*store.VolumeStore, error) {
+// 	volumesDriver, err := local.New(daemon.configStore.Root, rootIDs)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	volumedrivers.RegisterPluginGetter(daemon.PluginStore)
+// 	volumedrivers.RegisterPluginGetter(daemon.PluginStore)
 
-	if !volumedrivers.Register(volumesDriver, volumesDriver.Name()) {
-		return nil, errors.New("local volume driver could not be registered")
-	}
-	return store.New(daemon.configStore.Root)
-}
+// 	if !volumedrivers.Register(volumesDriver, volumesDriver.Name()) {
+// 		return nil, errors.New("local volume driver could not be registered")
+// 	}
+// 	return store.New(daemon.configStore.Root)
+// }
 
 // IsShuttingDown tells whether the daemon is shutting down or not
 func (daemon *Daemon) IsShuttingDown() bool {
@@ -1020,24 +996,24 @@ func (daemon *Daemon) IsShuttingDown() bool {
 }
 
 // initDiscovery initializes the discovery watcher for this daemon.
-func (daemon *Daemon) initDiscovery(conf *config.Config) error {
-	advertise, err := config.ParseClusterAdvertiseSettings(conf.ClusterStore, conf.ClusterAdvertise)
-	if err != nil {
-		if err == discovery.ErrDiscoveryDisabled {
-			return nil
-		}
-		return err
-	}
+// func (daemon *Daemon) initDiscovery(conf *config.Config) error {
+// 	advertise, err := config.ParseClusterAdvertiseSettings(conf.ClusterStore, conf.ClusterAdvertise)
+// 	if err != nil {
+// 		if err == discovery.ErrDiscoveryDisabled {
+// 			return nil
+// 		}
+// 		return err
+// 	}
 
-	conf.ClusterAdvertise = advertise
-	discoveryWatcher, err := discovery.Init(conf.ClusterStore, conf.ClusterAdvertise, conf.ClusterOpts)
-	if err != nil {
-		return fmt.Errorf("discovery initialization failed (%v)", err)
-	}
+// 	conf.ClusterAdvertise = advertise
+// 	discoveryWatcher, err := discovery.Init(conf.ClusterStore, conf.ClusterAdvertise, conf.ClusterOpts)
+// 	if err != nil {
+// 		return fmt.Errorf("discovery initialization failed (%v)", err)
+// 	}
 
-	daemon.discoveryWatcher = discoveryWatcher
-	return nil
-}
+// 	daemon.discoveryWatcher = discoveryWatcher
+// 	return nil
+// }
 
 func isBridgeNetworkDisabled(conf *config.Config) bool {
 	return conf.BridgeConfig.Iface == config.DisableNetworkBridge

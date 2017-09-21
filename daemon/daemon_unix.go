@@ -45,7 +45,6 @@ import (
 	"github.com/opencontainers/selinux/go-selinux/label"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 )
 
@@ -981,13 +980,13 @@ func initBridgeDriver(controller libnetwork.NetworkController, config *config.Co
 }
 
 // Remove default bridge interface if present (--bridge=none use case)
-func removeDefaultBridgeInterface() {
-	if lnk, err := netlink.LinkByName(bridge.DefaultBridgeName); err == nil {
-		if err := netlink.LinkDel(lnk); err != nil {
-			logrus.Warnf("Failed to remove bridge interface (%s): %v", bridge.DefaultBridgeName, err)
-		}
-	}
-}
+// func removeDefaultBridgeInterface() {
+// 	if lnk, err := netlink.LinkByName(bridge.DefaultBridgeName); err == nil {
+// 		if err := .LinkDel(lnk); err != nil {
+// 			logrus.Warnf("Failed to remove bridge interface (%s): %v", bridge.DefaultBridgeName, err)
+// 		}
+// 	}
+// }
 
 func (daemon *Daemon) getLayerInit() func(containerfs.ContainerFS) error {
 	return daemon.setupInitLayer
