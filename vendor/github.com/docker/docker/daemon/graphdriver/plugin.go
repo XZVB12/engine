@@ -22,7 +22,7 @@ func lookupPlugin(name string, pg plugingetter.PluginGetter, config Options) (Dr
 func newPluginDriver(name string, pl plugingetter.CompatPlugin, config Options) (Driver, error) {
 	home := config.Root
 	if !pl.IsV1() {
-		if p, ok := pl.(*Plugin); ok {
+		if p, ok := pl.(*v2.Plugin); ok {
 			if p.PropagatedMount != "" {
 				home = p.PluginObj.Config.PropagatedMount
 			}
