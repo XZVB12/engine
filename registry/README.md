@@ -42,4 +42,4 @@ TODO
 ----
 
 - [ ] add gitlab API code to pull plugin metrics (stars, name, description, etc.)
-- [ ] add [pgp](https://godoc.org/golang.org/x/crypto/openpgp) code to verify **maliceio/registry** code
+- [x] add [pgp](https://godoc.org/golang.org/x/crypto/openpgp) code to verify **maliceio/registry** code

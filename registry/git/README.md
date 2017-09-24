@@ -28,7 +28,7 @@ func main() {
 	if err != nil {
 		logrus.Fatal(err)
 	}
-	err = git.Pull()
+	err = git.PullRegistry()
 	if err != nil {
 		logrus.Fatal(err)
 	}
@@ -36,7 +36,7 @@ func main() {
 ```
 
 ```sh
-DEBU[0000] malice registry has been cloned into: /Users/user/.malice/registry
+DEBU[0000] malice registry has been cloned into: ~/.malice/registry
 DEBU[0000] good signature from: blacktop <blacktop@users.noreply.github.com>
 DEBU[0000] malice registry has been updated
 ```

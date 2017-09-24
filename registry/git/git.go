@@ -53,8 +53,8 @@ func CloneRegistry() error {
 	return nil
 }
 
-// Pull pulls new registry repo data
-func Pull() error {
+// PullRegistry updates registry repo
+func PullRegistry() error {
 	repo, err := git2go.OpenRepository(regDir)
 	if err != nil {
 		return errors.Wrap(err, "open registry repo failed")
