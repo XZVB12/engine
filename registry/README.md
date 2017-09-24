@@ -31,6 +31,12 @@ I will also include the sha256 somewhere for the json file?
 Features
 --------
 
+To pull my **pgp** public key you can
+
+```sh
+curl https://keybase.io/blacktop/pgp_keys.asc | gpg --import
+```
+
 
 TODO
 ----

@@ -19,6 +19,12 @@ dev: ## Setup dev env
 	vndr
 	hack/validate/vendor
 
+bindata: ## Embed binary data in malice engine
+	@echo "===> Embedding Binary Data"
+	rm registry/git/bindata.go || true
+	go-bindata -pkg git -ignore="^.*.go|\\.DS_Store" registry/fixture/...
+	mv bindata.go registry/git/bindata.go
+
 vendor: vendor.conf ## check that vendor matches vendor.conf
 	vndr 2> /dev/null
 	hack/validate/check-git-diff vendor
