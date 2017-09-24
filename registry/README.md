@@ -1,7 +1,11 @@
 registry
 ========
 
-This is malice's ability to reach out to `maliceio/registry` and pull down the most up-to-date copy of availible malice plugins, as well as pulling some metrics:
+This is malice's ability to reach out to [maliceio/registry](https://github.com/maliceio/registry) and pull down the most up-to-date copy of registered malice plugins, as well as pulling some metrics:
+
+
+Design
+------
 
 ```go
 type SearchResult struct {
@@ -18,8 +22,18 @@ type SearchResult struct {
 }
 ```
 
-this will be stored as a `registry.json` in the `.malice` config directory.
+this will be stored as a `registry.json` in the `.malice/registry` config directory.
 
 This git repo **git pull** will need to authenticated as I will be signing it with my keybase.io PGP key.
 
 I will also include the sha256 somewhere for the json file?
+
+Features
+--------
+
+
+TODO
+----
+
+- [ ] add gitlab API code to pull plugin metrics (stars, name, description, etc.)
+- [ ] add [pgp](https://godoc.org/golang.org/x/crypto/openpgp) code to verify **maliceio/registry** code
