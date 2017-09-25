@@ -2,7 +2,7 @@ package registry
 
 import (
 	"github.com/docker/distribution/reference"
-	registrytypes "github.com/docker/docker/api/types/registry"
+	registrytypes "github.com/maliceio/engine/api/types/registry"
 )
 
 // RepositoryData tracks the image list, list of endpoints for a repository
@@ -33,26 +33,6 @@ type PingResult struct {
 	// standalone registry in the X-Docker-Registry-Standalone
 	// header
 	Standalone bool `json:"standalone"`
-}
-
-// APIVersion is an integral representation of an API version (presently
-// either 1 or 2)
-type APIVersion int
-
-func (av APIVersion) String() string {
-	return apiVersions[av]
-}
-
-// API Version identifiers.
-const (
-	_                      = iota
-	APIVersion1 APIVersion = iota
-	APIVersion2
-)
-
-var apiVersions = map[APIVersion]string{
-	APIVersion1: "v1",
-	APIVersion2: "v2",
 }
 
 // RepositoryInfo describes a repository

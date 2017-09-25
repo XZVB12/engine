@@ -1,9 +1,7 @@
 package types
 
 import (
-	"github.com/moby/moby/api/types/container"
-	"github.com/moby/moby/api/types/registry"
-	"github.com/moby/moby/api/types/swarm"
+	"github.com/maliceio/engine/api/types/registry"
 )
 
 // Version contains response of Engine API:
@@ -85,26 +83,26 @@ type Info struct {
 	RegistryConfig     *registry.ServiceConfig
 	NCPU               int
 	MemTotal           int64
-	GenericResources   []swarm.GenericResource
-	DockerRootDir      string
-	HTTPProxy          string `json:"HttpProxy"`
-	HTTPSProxy         string `json:"HttpsProxy"`
-	NoProxy            string
-	Name               string
-	Labels             []string
-	ExperimentalBuild  bool
-	ServerVersion      string
-	ClusterStore       string
-	ClusterAdvertise   string
+	// GenericResources   []swarm.GenericResource
+	DockerRootDir     string
+	HTTPProxy         string `json:"HttpProxy"`
+	HTTPSProxy        string `json:"HttpsProxy"`
+	NoProxy           string
+	Name              string
+	Labels            []string
+	ExperimentalBuild bool
+	ServerVersion     string
+	ClusterStore      string
+	ClusterAdvertise  string
 	// Runtimes           map[string]Runtime
 	DefaultRuntime string
-	Swarm          swarm.Info
+	// Swarm          swarm.Info
 	// LiveRestoreEnabled determines whether containers should be kept
 	// running when the daemon is shutdown or upon daemon start if
 	// running containers are detected
 	LiveRestoreEnabled bool
-	Isolation          container.Isolation
-	InitBinary         string
+	// Isolation          container.Isolation
+	InitBinary string
 	// ContainerdCommit   Commit
 	// RuncCommit         Commit
 	// InitCommit         Commit
