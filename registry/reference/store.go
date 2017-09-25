@@ -2,43 +2,43 @@ package reference
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 	"sync"
 
+	"github.com/docker/cli/cli/config"
 	"github.com/docker/distribution/reference"
 	"github.com/docker/docker/pkg/ioutils"
 	"github.com/opencontainers/go-digest"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 )
 
 var (
 	// ErrDoesNotExist is returned if a reference is not found in the
 	// store.
 	ErrDoesNotExist notFoundError = "reference does not exist"
-)
 
-// An Association is a tuple associating a reference with an image ID.
-type Association struct {
-	Ref reference.Named
-	ID  digest.Digest
-}
+	referenceFilePath string
+)
 
 // Store provides the set of methods which can operate on a reference store.
 type Store interface {
-	References(id digest.Digest) []reference.Named
-	ReferencesByName(ref reference.Named) []Association
-	AddTag(ref reference.Named, id digest.Digest, force bool) error
-	AddDigest(ref reference.Canonical, id digest.Digest, force bool) error
+	Repos(id digest.Digest) []reference.Named
+	ReposByName(ref reference.Named)
+	// AddRepo(ref reference.Canonical, id digest.Digest, force bool) error
 	Delete(ref reference.Named) (bool, error)
 	Get(ref reference.Named) (digest.Digest, error)
 }
 
+// repository
+type repository struct {
+}
+
 type store struct {
 	mu sync.RWMutex
-	// jsonPath is the path to the file where the serialized tag data is
+	// jsonPath is the path to the file where the serialized repo data is
 	// stored.
 	jsonPath string
 	// Repositories is a map of repositories, indexed by name.
@@ -48,24 +48,11 @@ type store struct {
 	referencesByIDCache map[digest.Digest]map[string]reference.Named
 }
 
-// Repository maps tags to digests. The key is a stringified Reference,
-// including the repository name.
-type repository map[string]digest.Digest
-
-type lexicalRefs []reference.Named
-
-func (a lexicalRefs) Len() int      { return len(a) }
-func (a lexicalRefs) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
-func (a lexicalRefs) Less(i, j int) bool {
-	return a[i].String() < a[j].String()
-}
-
-type lexicalAssociations []Association
-
-func (a lexicalAssociations) Len() int      { return len(a) }
-func (a lexicalAssociations) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
-func (a lexicalAssociations) Less(i, j int) bool {
-	return a[i].Ref.String() < a[j].Ref.String()
+func init() {
+	if referenceFilePath == "" {
+		referenceFilePath = filepath.Join(config.Dir(), "repositories.json")
+	}
+	logrus.Debugf("malice reference.json path is %s", referenceFilePath)
 }
 
 // NewReferenceStore creates a new reference store, tied to a file path where
@@ -92,50 +79,7 @@ func NewReferenceStore(jsonPath string) (Store, error) {
 	return store, nil
 }
 
-// AddTag adds a tag reference to the store. If force is set to true, existing
-// references can be overwritten. This only works for tags, not digests.
-func (store *store) AddTag(ref reference.Named, id digest.Digest, force bool) error {
-	if _, isCanonical := ref.(reference.Canonical); isCanonical {
-		return errors.WithStack(invalidTagError("refusing to create a tag with a digest reference"))
-	}
-	return store.addReference(reference.TagNameOnly(ref), id, force)
-}
-
-// AddDigest adds a digest reference to the store.
-func (store *store) AddDigest(ref reference.Canonical, id digest.Digest, force bool) error {
-	return store.addReference(ref, id, force)
-}
-
-func favorDigest(originalRef reference.Named) (reference.Named, error) {
-	ref := originalRef
-	// If the reference includes a digest and a tag, we must store only the
-	// digest.
-	canonical, isCanonical := originalRef.(reference.Canonical)
-	_, isNamedTagged := originalRef.(reference.NamedTagged)
-
-	if isCanonical && isNamedTagged {
-		trimmed, err := reference.WithDigest(reference.TrimNamed(canonical), canonical.Digest())
-		if err != nil {
-			// should never happen
-			return originalRef, err
-		}
-		ref = trimmed
-	}
-	return ref, nil
-}
-
 func (store *store) addReference(ref reference.Named, id digest.Digest, force bool) error {
-	ref, err := favorDigest(ref)
-	if err != nil {
-		return err
-	}
-
-	refName := reference.FamiliarName(ref)
-	refStr := reference.FamiliarString(ref)
-
-	if refName == string(digest.Canonical) {
-		return errors.WithStack(invalidTagError("refusing to create an ambiguous tag using digest algorithm as name"))
-	}
 
 	store.mu.Lock()
 	defer store.mu.Unlock()
@@ -152,14 +96,6 @@ func (store *store) addReference(ref reference.Named, id digest.Digest, force bo
 		// force only works for tags
 		if digested, isDigest := ref.(reference.Canonical); isDigest {
 			return errors.WithStack(conflictingTagError("Cannot overwrite digest " + digested.Digest().String()))
-		}
-
-		if !force {
-			return errors.WithStack(
-				conflictingTagError(
-					fmt.Sprintf("Conflict: Tag %s is already set to image %s, if you want to replace it, please use the force option", refStr, oldID.String()),
-				),
-			)
 		}
 
 		if store.referencesByIDCache[oldID] != nil {
@@ -255,7 +191,7 @@ func (store *store) Get(ref reference.Named) (digest.Digest, error) {
 
 // References returns a slice of references to the given ID. The slice
 // will be nil if there are no references to this ID.
-func (store *store) References(id digest.Digest) []reference.Named {
+func (store *store) Repos(id digest.Digest) []reference.Named {
 	store.mu.RLock()
 	defer store.mu.RUnlock()
 
@@ -273,10 +209,7 @@ func (store *store) References(id digest.Digest) []reference.Named {
 	return references
 }
 
-// ReferencesByName returns the references for a given repository name.
-// If there are no references known for this repository name,
-// ReferencesByName returns nil.
-func (store *store) ReferencesByName(ref reference.Named) []Association {
+func (store *store) ReposByName(ref reference.Named) []Association {
 	refName := reference.FamiliarName(ref)
 
 	store.mu.RLock()

@@ -6,12 +6,12 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/sirupsen/logrus"
 	"github.com/gorilla/mux"
 	"github.com/maliceio/engine/api/server/httputils"
 	"github.com/maliceio/engine/api/server/middleware"
 	"github.com/maliceio/engine/api/server/router"
-	"github.com/moby/moby/dockerversion"
+	"github.com/maliceio/engine/malice/version"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 )
 
@@ -125,7 +125,7 @@ func (s *Server) makeHTTPHandler(handler httputils.APIFunc) http.HandlerFunc {
 		// apply to all requests. Data that is specific to the
 		// immediate function being called should still be passed
 		// as 'args' on the function call.
-		ctx := context.WithValue(context.Background(), dockerversion.UAStringKey, r.Header.Get("User-Agent"))
+		ctx := context.WithValue(context.Background(), version.UAStringKey, r.Header.Get("User-Agent"))
 		handlerFunc := s.handlerWithGlobalMiddlewares(handler)
 
 		vars := mux.Vars(r)

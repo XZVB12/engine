@@ -3,7 +3,6 @@ package registry
 import (
 	"fmt"
 	"net"
-	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -27,42 +26,19 @@ type serviceConfig struct {
 
 var (
 	// DefaultNamespace is the default namespace
-	DefaultNamespace = "docker.io"
-	// DefaultRegistryVersionHeader is the name of the default HTTP header
-	// that carries Registry version info
-	DefaultRegistryVersionHeader = "Docker-Distribution-Api-Version"
-
-	// IndexHostname is the index hostname
-	IndexHostname = "index.docker.io"
-	// IndexServer is used for user auth and image search
-	IndexServer = "https://" + IndexHostname + "/v1/"
-	// IndexName is the name of the index
-	IndexName = "docker.io"
+	DefaultNamespace = "malice.io"
 
 	// NotaryServer is the endpoint serving the Notary trust server
 	NotaryServer = "https://notary.docker.io"
 
-	// DefaultV2Registry is the URI of the default v2 registry
-	DefaultV2Registry = &url.URL{
-		Scheme: "https",
-		Host:   "registry-1.docker.io",
-	}
-)
-
-var (
 	// ErrInvalidRepositoryName is an error returned if the repository name did
 	// not have the correct form
-	ErrInvalidRepositoryName = errors.New("Invalid repository name (ex: \"registry.domain.tld/myrepos\")")
+	ErrInvalidRepositoryName = errors.New("Invalid repository name (ex: \"github.com/hacker/myplugin\")")
 
 	emptyServiceConfig = newServiceConfig(ServiceOptions{})
-)
 
-var (
 	validHostPortRegex = regexp.MustCompile(`^` + reference.DomainRegexp.String() + `$`)
 )
-
-// for mocking in unit tests
-var lookupIP = net.LookupIP
 
 // newServiceConfig returns a new instance of ServiceConfig
 func newServiceConfig(options ServiceOptions) *serviceConfig {
@@ -73,12 +49,7 @@ func newServiceConfig(options ServiceOptions) *serviceConfig {
 			// Hack: Bypass setting the mirrors to IndexConfigs since they are going away
 			// and Mirrors are only for the official registry anyways.
 		},
-		V2Only: options.V2Only,
 	}
-
-	config.LoadAllowNondistributableArtifacts(options.AllowNondistributableArtifacts)
-	config.LoadMirrors(options.Mirrors)
-	config.LoadInsecureRegistries(options.InsecureRegistries)
 
 	return config
 }
@@ -146,7 +117,7 @@ func newIndexInfo(config *serviceConfig, indexName string) (*registrytypes.Index
 		Mirrors:  make([]string, 0),
 		Official: false,
 	}
-	index.Secure = isSecureIndex(config, indexName)
+
 	return index, nil
 }
 
@@ -160,7 +131,6 @@ func newRepositoryInfo(config *serviceConfig, name reference.Named) (*Repository
 
 	return &RepositoryInfo{
 		Name:     reference.TrimNamed(name),
-		Index:    index,
 		Official: official,
 	}, nil
 }
