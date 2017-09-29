@@ -47,34 +47,26 @@ func (s *DefaultService) ServiceConfig() *registrytypes.ServiceConfig {
 	defer s.mu.Unlock()
 
 	servConfig := registrytypes.ServiceConfig{
-		AllowNondistributableArtifactsCIDRs:     make([]*(registrytypes.NetIPNet), 0),
+		// AllowNondistributableArtifactsCIDRs:     make([]*(registrytypes.NetIPNet), 0),
 		AllowNondistributableArtifactsHostnames: make([]string, 0),
-		InsecureRegistryCIDRs:                   make([]*(registrytypes.NetIPNet), 0),
-		IndexConfigs:                            make(map[string]*(registrytypes.IndexInfo)),
-		Mirrors:                                 make([]string, 0),
+		// InsecureRegistryCIDRs:                   make([]*(registrytypes.NetIPNet), 0),
+		IndexConfigs: make(map[string]*(registrytypes.IndexInfo)),
+		Mirrors:      make([]string, 0),
 	}
 
 	// construct a new ServiceConfig which will not retrieve s.Config directly,
 	// and look up items in s.config with mu locked
-	servConfig.AllowNondistributableArtifactsCIDRs = append(servConfig.AllowNondistributableArtifactsCIDRs, s.config.ServiceConfig.AllowNondistributableArtifactsCIDRs...)
+	// servConfig.AllowNondistributableArtifactsCIDRs = append(servConfig.AllowNondistributableArtifactsCIDRs, s.config.ServiceConfig.AllowNondistributableArtifactsCIDRs...)
 	servConfig.AllowNondistributableArtifactsHostnames = append(servConfig.AllowNondistributableArtifactsHostnames, s.config.ServiceConfig.AllowNondistributableArtifactsHostnames...)
-	servConfig.InsecureRegistryCIDRs = append(servConfig.InsecureRegistryCIDRs, s.config.ServiceConfig.InsecureRegistryCIDRs...)
+	// servConfig.InsecureRegistryCIDRs = append(servConfig.InsecureRegistryCIDRs, s.config.ServiceConfig.InsecureRegistryCIDRs...)
 
-	for key, value := range s.config.ServiceConfig.IndexConfigs {
-		servConfig.IndexConfigs[key] = value
-	}
+	// for key, value := range s.config.ServiceConfig.IndexConfigs {
+	// 	servConfig.IndexConfigs[key] = value
+	// }
 
 	servConfig.Mirrors = append(servConfig.Mirrors, s.config.ServiceConfig.Mirrors...)
 
 	return &servConfig
-}
-
-// LoadMirrors loads registry mirrors for Service
-func (s *DefaultService) LoadMirrors(mirrors []string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	return s.config.LoadMirrors(mirrors)
 }
 
 // splitReposSearchTerm breaks a search term into an index name and remote name
