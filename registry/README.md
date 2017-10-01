@@ -5,11 +5,11 @@ registry
 
 ```go
 type RepoMetric struct {
-	Name        string `json:"name,omitempty"`
-	Description string `json:"description,omitempty"`
-	Stars       int    `json:"stars,omitempty"`
-	Forks       int    `json:"forks,omitempty"`
-	Watchers    int    `json:"watchers,omitempty"`
+    Name        string `json:"name,omitempty"`
+    Description string `json:"description,omitempty"`
+    Stars       int    `json:"stars,omitempty"`
+    Forks       int    `json:"forks,omitempty"`
+    Watchers    int    `json:"watchers,omitempty"`
 }
 ```
 
@@ -20,19 +20,18 @@ The `malice/registry` will be stored in the `.malice/registry` directory and the
 
 This git repo [maliceio/registry](https://github.com/maliceio/registry) will need to verified similar to the way `git verify-commit` works.  I will be signing every commit with my [keybase.io](keybase.io) PGP key.
 
-
 Features
 --------
 
 git commands
 
- - `git clone` [maliceio/registry](https://github.com/maliceio/registry)
- - `git verify-commit` of **HEAD**
- - `git pull` to update registry
+- `git clone` [maliceio/registry](https://github.com/maliceio/registry)
+- `git verify-commit` of **HEAD**
+- `git pull` to update registry
 
 plugin metrics
 
- - uses Github API to pull metrics on plugins in registry to help users find the plugins they are looking for
+- uses Github API to pull metrics on plugins in registry to help users find the plugins they are looking for
 
 TODO
 ----
