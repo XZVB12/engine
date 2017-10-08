@@ -9,29 +9,29 @@ import (
 )
 
 var (
-	// DefaultHTTPPort Default HTTP Port used if only the protocol is provided to -H flag e.g. dockerd -H tcp://
-	// These are the IANA registered port numbers for use with Docker
-	// see http://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.xhtml?search=docker
-	DefaultHTTPPort = 2375 // Default HTTP Port
+	// DefaultHTTPPort Default HTTP Port used if only the protocol is provided to -H flag e.g. maliced -H tcp://
+	// These are the IANA registered port numbers for use with Malice
+	// see http://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.xhtml?search=malice
+	DefaultHTTPPort = 3993 // Default HTTP Port
 	// DefaultTLSHTTPPort Default HTTP Port used when TLS enabled
-	DefaultTLSHTTPPort = 2376 // Default TLS encrypted HTTP Port
+	DefaultTLSHTTPPort = 3994 // Default TLS encrypted HTTP Port
 	// DefaultUnixSocket Path for the unix socket.
-	// Docker daemon by default always listens on the default unix socket
-	DefaultUnixSocket = "/var/run/docker.sock"
-	// DefaultTCPHost constant defines the default host string used by docker on Windows
+	// Malice daemon by default always listens on the default unix socket
+	DefaultUnixSocket = "/var/run/malice.sock"
+	// DefaultTCPHost constant defines the default host string used by malice on Windows
 	DefaultTCPHost = fmt.Sprintf("tcp://%s:%d", DefaultHTTPHost, DefaultHTTPPort)
-	// DefaultTLSHost constant defines the default host string used by docker for TLS sockets
+	// DefaultTLSHost constant defines the default host string used by malice for TLS sockets
 	DefaultTLSHost = fmt.Sprintf("tcp://%s:%d", DefaultHTTPHost, DefaultTLSHTTPPort)
-	// DefaultNamedPipe defines the default named pipe used by docker on Windows
-	DefaultNamedPipe = `//./pipe/docker_engine`
+	// DefaultNamedPipe defines the default named pipe used by malice on Windows
+	DefaultNamedPipe = `//./pipe/malice_engine`
 )
 
 // ValidateHost validates that the specified string is a valid host and returns it.
 func ValidateHost(val string) (string, error) {
 	host := strings.TrimSpace(val)
-	// The empty string means default and is not handled by parseDockerDaemonHost
+	// The empty string means default and is not handled by parseMaliceDaemonHost
 	if host != "" {
-		_, err := parseDockerDaemonHost(host)
+		_, err := parseMaliceDaemonHost(host)
 		if err != nil {
 			return val, err
 		}
@@ -52,7 +52,7 @@ func ParseHost(defaultToTLS bool, val string) (string, error) {
 		}
 	} else {
 		var err error
-		host, err = parseDockerDaemonHost(host)
+		host, err = parseMaliceDaemonHost(host)
 		if err != nil {
 			return val, err
 		}
@@ -60,9 +60,9 @@ func ParseHost(defaultToTLS bool, val string) (string, error) {
 	return host, nil
 }
 
-// parseDockerDaemonHost parses the specified address and returns an address that will be used as the host.
+// parseMaliceDaemonHost parses the specified address and returns an address that will be used as the host.
 // Depending of the address specified, this may return one of the global Default* strings defined in hosts.go.
-func parseDockerDaemonHost(addr string) (string, error) {
+func parseMaliceDaemonHost(addr string) (string, error) {
 	addrParts := strings.SplitN(addr, "://", 2)
 	if len(addrParts) == 1 && addrParts[0] != "" {
 		addrParts = []string{"tcp", addrParts[0]}

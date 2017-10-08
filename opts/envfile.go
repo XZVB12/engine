@@ -20,7 +20,7 @@ import (
 // tolerate the presence of such names.''
 // -- http://pubs.opengroup.org/onlinepubs/009695399/basedefs/xbd_chap08.html
 //
-// As of #16585, it's up to application inside docker to validate or not
+// As of #16585, it's up to application inside malice to validate or not
 // environment variables, that's why we just strip leading whitespace and
 // nothing more.
 func ParseEnvFile(filename string) ([]string, error) {

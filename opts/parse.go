@@ -1,11 +1,7 @@
 package opts
 
 import (
-	"fmt"
-	"strconv"
 	"strings"
-
-	"github.com/docker/docker/api/types/container"
 )
 
 // ReadKVStrings reads a file of line terminated key=value pairs, and overrides any keys
@@ -57,31 +53,4 @@ func ConvertKVStringsToMapWithNil(values []string) map[string]*string {
 	}
 
 	return result
-}
-
-// ParseRestartPolicy returns the parsed policy or an error indicating what is incorrect
-func ParseRestartPolicy(policy string) (container.RestartPolicy, error) {
-	p := container.RestartPolicy{}
-
-	if policy == "" {
-		return p, nil
-	}
-
-	parts := strings.Split(policy, ":")
-
-	if len(parts) > 2 {
-		return p, fmt.Errorf("invalid restart policy format")
-	}
-	if len(parts) == 2 {
-		count, err := strconv.Atoi(parts[1])
-		if err != nil {
-			return p, fmt.Errorf("maximum retry count must be an integer")
-		}
-
-		p.MaximumRetryCount = count
-	}
-
-	p.Name = parts[0]
-
-	return p, nil
 }

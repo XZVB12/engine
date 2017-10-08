@@ -11,7 +11,7 @@ import (
 // If no value is specified, it returns the current value using os.Getenv.
 //
 // As on ParseEnvFile and related to #16585, environment variable names
-// are not validate what so ever, it's up to application inside docker
+// are not validate what so ever, it's up to application inside malice
 // to validate them or not.
 //
 // The only validation here is to check if name is empty, per #25099

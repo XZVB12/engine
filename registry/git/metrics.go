@@ -20,8 +20,8 @@ type RepoMetric struct {
 	Watchers    int    `json:"watchers,omitempty"`
 }
 
-// GetMetricsForRepo reads plugin metrics from Github API
-func GetMetricsForRepo(repo string) (RepoMetric, error) {
+// GetMetricsForOrg reads org metrics from Github API
+func GetMetricsForOrg(org string) (RepoMetric, error) {
 	rm := RepoMetric{}
 	rms := []RepoMetric{}
 
@@ -32,7 +32,46 @@ func GetMetricsForRepo(repo string) (RepoMetric, error) {
 
 	// list public repositories for org "github"
 	opt := &github.RepositoryListByOrgOptions{Type: "public"}
-	repos, _, err := client.Repositories.ListByOrg(ctx, "malice-plugins", opt)
+	repos, _, err := client.Repositories.ListByOrg(ctx, org, opt)
+	if err != nil {
+		return rm, err
+	}
+
+	for _, repo := range repos {
+		rm := RepoMetric{}
+		rm.Name = repo.GetName()
+		rm.Description = repo.GetDescription()
+		rm.Stars = repo.GetStargazersCount()
+		rm.Forks = repo.GetForksCount()
+		rm.Watchers = repo.GetWatchersCount()
+		// add to slice
+		rms = append(rms, rm)
+	}
+
+	sort.Slice(rms, func(i, j int) bool {
+		return rms[i].Stars > rms[j].Stars
+	})
+
+	for _, r := range rms {
+		fmt.Printf("plugin: %s, stars: %d\n", r.Name, r.Stars)
+	}
+
+	return rm, nil
+}
+
+// GetMetricsForUser reads user metrics from Github API
+func GetMetricsForUser(user string) (RepoMetric, error) {
+	rm := RepoMetric{}
+	rms := []RepoMetric{}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
+	defer cancel()
+
+	client := github.NewClient(nil)
+
+	// list public repositories for org "github"
+	// opt := &github.RepositoryListByOrgOptions{Type: "public"}
+	repos, _, err := client.Repositories.List(ctx, user, &github.RepositoryListOptions{})
 	if err != nil {
 		return rm, err
 	}
