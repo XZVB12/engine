@@ -14,9 +14,6 @@ import (
 
 // ServiceOptions holds command line options.
 type ServiceOptions struct {
-	AllowNondistributableArtifacts []string `json:"allow-nondistributable-artifacts,omitempty"`
-	Mirrors                        []string `json:"registry-mirrors,omitempty"`
-	InsecureRegistries             []string `json:"insecure-registries,omitempty"`
 }
 
 // serviceConfig holds daemon configuration for the registry service.

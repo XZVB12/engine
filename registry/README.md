@@ -16,9 +16,9 @@ type RepoMetric struct {
 Design
 ------
 
-The `malice/registry` will be stored in the `.malice/registry` directory and the plugin **metrics** will be stored in `.malice/plugin/registry.json`
+The `malice/registry` will be stored in the `~/.malice/registry` directory
 
-This git repo [maliceio/registry](https://github.com/maliceio/registry) will need to verified similar to the way `git verify-commit` works.  I will be signing every commit with my [keybase.io](keybase.io) PGP key.
+This git repo [maliceio/registry](https://github.com/maliceio/registry) will need to verified similar to the way `git verify-commit` works.  I will be signing every commit with my [keybase.io](https://keybase.io/blacktop) PGP key.
 
 Features
 --------
@@ -47,3 +47,5 @@ To pull my **pgp** public key you can
 ```sh
 $ curl https://keybase.io/blacktop/pgp_keys.asc | gpg --import
 ```
+
+It will also be embedded in the maliced binary.
