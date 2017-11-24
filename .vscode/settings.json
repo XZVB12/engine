@@ -17,5 +17,6 @@
   // you'll need to change this to an absolute path on your computer
   "editor.renderWhitespace": "all",
   "go.useLanguageServer": true,
+  // ${fileDirname} can point to .vscode folder
   "git.ignoreLimitWarning": true
 }
