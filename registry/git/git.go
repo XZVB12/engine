@@ -1,20 +1,18 @@
 package git
 
 import (
-	"bytes"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/maliceio/engine/cli/config"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/crypto/openpgp"
-	git2go "gopkg.in/libgit2/git2go.v26"
+	git "gopkg.in/src-d/go-git.v4"
 )
 
 var (
-	regDir     = os.Getenv("MALICE_REGISTRY")
+	regDir     = os.Getenv("MALICE_REGISTRY_PATH")
+	regURL     = os.Getenv("MALICE_REGISTRY_URL")
 	regRepoDir = "registry"
 )
 
@@ -23,14 +21,19 @@ func init() {
 		regDir = filepath.Join(config.Dir(), regRepoDir)
 	}
 	logrus.Debugf("malice registry directory is %s", regDir)
+	if regURL == "" {
+		regURL = "https://github.com/maliceio/registry"
+	}
+	logrus.Debugf("malice registry URL is %s", regURL)
 }
 
 // CloneRegistry clones the maliceio/registry repo and verifies it's signature
 func CloneRegistry() error {
-	opts := &git2go.CloneOptions{
-		CheckoutBranch: "master",
-	}
-	repo, err := git2go.Clone("https://github.com/maliceio/registry.git", regDir, opts)
+	repo, err := git.PlainClone(regDir, false, &git.CloneOptions{
+		URL:      regURL,
+		Depth:    1,
+		Progress: os.Stdout,
+	})
 	if err != nil {
 		return errors.Wrap(err, "git clone failed")
 	}
@@ -41,12 +44,17 @@ func CloneRegistry() error {
 		return errors.Wrap(err, "get repo HEAD failed")
 	}
 
-	commit, err := repo.LookupCommit(currentBranch.Target())
+	commit, err := repo.CommitObject(currentBranch.Hash())
 	if err != nil {
 		return errors.Wrap(err, "get latest commit failed")
 	}
 	// verify malice registry
-	err = VerifyCommit(commit)
+	pgpKeys, err := Asset("registry/fixture/pgp_keys.asc")
+	if err != nil {
+		return errors.Wrap(err, "open pgp_keys.asc failed")
+	}
+	// keyRingReader := bytes.NewReader(string())
+	_, err = commit.Verify(string(pgpKeys))
 	if err != nil {
 		return errors.Wrap(err, "git verify-commit failed")
 	}
@@ -55,63 +63,22 @@ func CloneRegistry() error {
 
 // PullRegistry updates registry repo
 func PullRegistry() error {
-	repo, err := git2go.OpenRepository(regDir)
+	repo, err := git.PlainOpen(regDir)
 	if err != nil {
 		return errors.Wrap(err, "open registry repo failed")
 	}
-	origin, err := repo.Remotes.Lookup("origin")
+	w, err := repo.Worktree()
 	if err != nil {
-		return errors.Wrap(err, "repo remotes lookup origin failed")
+		return errors.Wrap(err, "get the working directory for the repository failed")
 	}
-	err = origin.ConnectFetch(nil, nil, nil)
+	err = w.Pull(&git.PullOptions{RemoteName: "origin"})
+	if err == git.NoErrAlreadyUpToDate {
+		logrus.Debug("malice registry already up-to-date")
+		return nil
+	}
 	if err != nil {
 		return errors.Wrap(err, "connect fetch failed")
 	}
 	logrus.Debug("malice registry has been updated")
-	return nil
-}
-
-// VerifyCommit performs a `git verify-commit head`
-func VerifyCommit(commit *git2go.Commit) error {
-	pgpKeys, err := Asset("registry/fixture/pgp_keys.asc")
-	if err != nil {
-		return errors.Wrap(err, "open pgp_keys.asc failed")
-	}
-	keyRingReader := bytes.NewReader(pgpKeys)
-
-	if commit == nil {
-		repo, err := git2go.OpenRepository(regDir)
-		if err != nil {
-			return errors.Wrap(err, "open registry repo failed")
-		}
-
-		currentBranch, err := repo.Head()
-		if err != nil {
-			return errors.Wrap(err, "get repo HEAD failed")
-		}
-
-		commit, err = repo.LookupCommit(currentBranch.Target())
-		if err != nil {
-			return errors.Wrap(err, "get latest commit failed")
-		}
-	}
-
-	signature, signed, err := commit.ExtractSignature()
-	if err != nil {
-		return errors.Wrap(err, "extract signature failed")
-	}
-
-	keyring, err := openpgp.ReadArmoredKeyRing(keyRingReader)
-	if err != nil {
-		return errors.Wrap(err, "read armored key-ring failed")
-	}
-
-	entity, err := openpgp.CheckArmoredDetachedSignature(keyring, strings.NewReader(signed), strings.NewReader(signature))
-	if err != nil {
-		return errors.Wrap(err, "check detached signature failed")
-	}
-	for ident := range entity.Identities {
-		logrus.Debugf("good signature from: %s", entity.Identities[ident].Name)
-	}
 	return nil
 }
