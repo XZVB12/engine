@@ -29,6 +29,9 @@ archive:
     linux: linux
     windows: win
 
+sign:
+   artifacts: checksum
+
 brew:
   github:
     owner: maliceio
