@@ -9,6 +9,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const maxSetStringLen = 350
+
 func (c *controller) addEndpointNameResolution(svcName, svcID, nID, eID, containerName string, vip net.IP, serviceAliases, taskAliases []string, ip net.IP, addService bool, method string) error {
 	n, err := c.NetworkByID(nID)
 	if err != nil {
@@ -161,6 +163,19 @@ func (c *controller) getLBIndex(sid, nid string, ingressPorts []*PortConfig) int
 	return int(lb.fwMark)
 }
 
+// cleanupServiceDiscovery when the network is being deleted, erase all the associated service discovery records
+func (c *controller) cleanupServiceDiscovery(cleanupNID string) {
+	c.Lock()
+	defer c.Unlock()
+	if cleanupNID == "" {
+		logrus.Debugf("cleanupServiceDiscovery for all networks")
+		c.svcRecords = make(map[string]svcInfo)
+		return
+	}
+	logrus.Debugf("cleanupServiceDiscovery for network:%s", cleanupNID)
+	delete(c.svcRecords, cleanupNID)
+}
+
 func (c *controller) cleanupServiceBindings(cleanupNID string) {
 	var cleanupFuncs []func()
 
@@ -183,15 +198,6 @@ func (c *controller) cleanupServiceBindings(cleanupNID string) {
 			if cleanupNID != "" && nid != cleanupNID {
 				continue
 			}
-
-			// The network is being deleted, erase all the associated service discovery records
-			// TODO(fcrisciani) separate the Load Balancer from the Service discovery, this operation
-			// can be done safely here, but the rmServiceBinding is still keeping consistency in the
-			// data structures that are tracking the endpoint to IP mapping.
-			c.Lock()
-			logrus.Debugf("cleanupServiceBindings erasing the svcRecords for %s", nid)
-			delete(c.svcRecords, nid)
-			c.Unlock()
 
 			for eid, ip := range lb.backEnds {
 				epID := eid
@@ -281,13 +287,16 @@ func (c *controller) addServiceBinding(svcName, svcID, nID, eID, containerName s
 	ok, entries := s.assignIPToEndpoint(ip.String(), eID)
 	if !ok || entries > 1 {
 		setStr, b := s.printIPToEndpoint(ip.String())
-		logrus.Warnf("addServiceBinding %s possible trainsient state ok:%t entries:%d set:%t %s", eID, ok, entries, b, setStr)
+		if len(setStr) > maxSetStringLen {
+			setStr = setStr[:maxSetStringLen]
+		}
+		logrus.Warnf("addServiceBinding %s possible transient state ok:%t entries:%d set:%t %s", eID, ok, entries, b, setStr)
 	}
 
 	// Add loadbalancer service and backend in all sandboxes in
 	// the network only if vip is valid.
 	if len(vip) != 0 {
-		n.(*network).addLBBackend(ip, vip, lb.fwMark, ingressPorts)
+		n.(*network).addLBBackend(ip, vip, lb, ingressPorts)
 	}
 
 	// Add the appropriate name resolutions
@@ -349,13 +358,16 @@ func (c *controller) rmServiceBinding(svcName, svcID, nID, eID, containerName st
 	ok, entries := s.removeIPToEndpoint(ip.String(), eID)
 	if !ok || entries > 0 {
 		setStr, b := s.printIPToEndpoint(ip.String())
-		logrus.Warnf("rmServiceBinding %s possible trainsient state ok:%t entries:%d set:%t %s", eID, ok, entries, b, setStr)
+		if len(setStr) > maxSetStringLen {
+			setStr = setStr[:maxSetStringLen]
+		}
+		logrus.Warnf("rmServiceBinding %s possible transient state ok:%t entries:%d set:%t %s", eID, ok, entries, b, setStr)
 	}
 
 	// Remove loadbalancer service(if needed) and backend in all
 	// sandboxes in the network only if the vip is valid.
 	if len(vip) != 0 && entries == 0 {
-		n.(*network).rmLBBackend(ip, vip, lb.fwMark, ingressPorts, rmService)
+		n.(*network).rmLBBackend(ip, vip, lb, ingressPorts, rmService)
 	}
 
 	// Delete the name resolutions

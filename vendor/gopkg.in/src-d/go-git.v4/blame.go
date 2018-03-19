@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"gopkg.in/src-d/go-git.v4/plumbing"
@@ -106,12 +107,15 @@ type Line struct {
 	Author string
 	// Text is the original text of the line.
 	Text string
+	// Date is when the original text of the line was introduced
+	Date time.Time
 }
 
-func newLine(author, text string) *Line {
+func newLine(author, text string, date time.Time) *Line {
 	return &Line{
 		Author: author,
 		Text:   text,
+		Date:   date,
 	}
 }
 
@@ -121,7 +125,7 @@ func newLines(contents []string, commits []*object.Commit) ([]*Line, error) {
 	}
 	result := make([]*Line, 0, len(contents))
 	for i := range contents {
-		l := newLine(commits[i].Author.Email, contents[i])
+		l := newLine(commits[i].Author.Email, contents[i], commits[i].Author.When)
 		result = append(result, l)
 	}
 	return result, nil
@@ -147,10 +151,7 @@ func (b *blame) fillRevs() error {
 	var err error
 
 	b.revs, err = references(b.fRev, b.path)
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // build graph of a file from its revision history
@@ -244,7 +245,7 @@ func (b *blame) GoString() string {
 
 	lines := strings.Split(contents, "\n")
 	// max line number length
-	mlnl := len(fmt.Sprintf("%s", strconv.Itoa(len(lines))))
+	mlnl := len(strconv.Itoa(len(lines)))
 	// max author length
 	mal := b.maxAuthorLength()
 	format := fmt.Sprintf("%%s (%%-%ds %%%dd) %%s\n",

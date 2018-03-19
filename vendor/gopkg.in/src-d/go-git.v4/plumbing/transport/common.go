@@ -94,7 +94,7 @@ type ReceivePackSession interface {
 
 // Endpoint represents a Git URL in any supported protocol.
 type Endpoint struct {
-	// Protocol is the protocol of the endpoint (e.g. git, https, file). I
+	// Protocol is the protocol of the endpoint (e.g. git, https, file).
 	Protocol string
 	// User is the user.
 	User string
@@ -128,10 +128,10 @@ func (u *Endpoint) String() string {
 		buf.WriteString("//")
 
 		if u.User != "" || u.Password != "" {
-			buf.WriteString(u.User)
+			buf.WriteString(url.PathEscape(u.User))
 			if u.Password != "" {
 				buf.WriteByte(':')
-				buf.WriteString(u.Password)
+				buf.WriteString(url.PathEscape(u.Password))
 			}
 
 			buf.WriteByte('@')

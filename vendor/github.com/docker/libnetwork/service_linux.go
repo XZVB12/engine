@@ -19,6 +19,7 @@ import (
 	"github.com/docker/libnetwork/ipvs"
 	"github.com/docker/libnetwork/ns"
 	"github.com/gogo/protobuf/proto"
+	"github.com/ishidawataru/sctp"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink/nl"
 	"github.com/vishvananda/netns"
@@ -111,7 +112,7 @@ func (sb *sandbox) populateLoadbalancers(ep *endpoint) {
 
 // Add loadbalancer backend to all sandboxes which has a connection to
 // this network. If needed add the service as well.
-func (n *network) addLBBackend(ip, vip net.IP, fwMark uint32, ingressPorts []*PortConfig) {
+func (n *network) addLBBackend(ip, vip net.IP, lb *loadBalancer, ingressPorts []*PortConfig) {
 	n.WalkEndpoints(func(e Endpoint) bool {
 		ep := e.(*endpoint)
 		if sb, ok := ep.getSandbox(); ok {
@@ -124,7 +125,7 @@ func (n *network) addLBBackend(ip, vip net.IP, fwMark uint32, ingressPorts []*Po
 				gwIP = ep.Iface().Address().IP
 			}
 
-			sb.addLBBackend(ip, vip, fwMark, ingressPorts, ep.Iface().Address(), gwIP, n.ingress)
+			sb.addLBBackend(ip, vip, lb.fwMark, ingressPorts, ep.Iface().Address(), gwIP, n.ingress)
 		}
 
 		return false
@@ -134,7 +135,7 @@ func (n *network) addLBBackend(ip, vip net.IP, fwMark uint32, ingressPorts []*Po
 // Remove loadbalancer backend from all sandboxes which has a
 // connection to this network. If needed remove the service entry as
 // well, as specified by the rmService bool.
-func (n *network) rmLBBackend(ip, vip net.IP, fwMark uint32, ingressPorts []*PortConfig, rmService bool) {
+func (n *network) rmLBBackend(ip, vip net.IP, lb *loadBalancer, ingressPorts []*PortConfig, rmService bool) {
 	n.WalkEndpoints(func(e Endpoint) bool {
 		ep := e.(*endpoint)
 		if sb, ok := ep.getSandbox(); ok {
@@ -147,7 +148,7 @@ func (n *network) rmLBBackend(ip, vip net.IP, fwMark uint32, ingressPorts []*Por
 				gwIP = ep.Iface().Address().IP
 			}
 
-			sb.rmLBBackend(ip, vip, fwMark, ingressPorts, ep.Iface().Address(), gwIP, rmService, n.ingress)
+			sb.rmLBBackend(ip, vip, lb.fwMark, ingressPorts, ep.Iface().Address(), gwIP, rmService, n.ingress)
 		}
 
 		return false
@@ -503,6 +504,10 @@ func plumbProxy(iPort *PortConfig, isDelete bool) error {
 		l, err = net.ListenTCP("tcp", &net.TCPAddr{Port: int(iPort.PublishedPort)})
 	case ProtocolUDP:
 		l, err = net.ListenUDP("udp", &net.UDPAddr{Port: int(iPort.PublishedPort)})
+	case ProtocolSCTP:
+		l, err = sctp.ListenSCTP("sctp", &sctp.SCTPAddr{Port: int(iPort.PublishedPort)})
+	default:
+		err = fmt.Errorf("unknown protocol %v", iPort.Protocol)
 	}
 
 	if err != nil {
@@ -761,6 +766,7 @@ func redirecter() {
 
 	// Ensure blocking rules for anything else in/to ingress network
 	for _, rule := range [][]string{
+		{"-d", eIP.String(), "-p", "sctp", "-j", "DROP"},
 		{"-d", eIP.String(), "-p", "udp", "-j", "DROP"},
 		{"-d", eIP.String(), "-p", "tcp", "-j", "DROP"},
 	} {
