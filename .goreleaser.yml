@@ -11,6 +11,7 @@ builds:
       - linux
     goarch:
       - amd64
+    flags: -buildmode=pie
     ldflags: |-
       -s
       -w
@@ -44,10 +45,10 @@ brew:
   test: |
     system "#{bin}/maliced --version"
 
-fpm:
+nfpm:
   vendor: MaliceIO
   homepage: https://malice.io/
-  maintainer: <Blacktop github.com/blacktop>
+  maintainer: Blacktop <github.com/blacktop>
   description: Open Source Malware Analysis Framework.
   license: Apache 2.0
   formats:

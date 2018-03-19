@@ -13,6 +13,6 @@ go get -v -d
 
 echo "Building statically linked $TARGET"
 export CGO_ENABLED=0
-go build -i -o "${TARGET}" -a -installsuffix cgo --ldflags "${LDFLAGS}" "${SOURCE}"
+go build -buildmode=pie -i -o "${TARGET}" -a -installsuffix cgo -ldflags="${LDFLAGS}" "${SOURCE}"
 
 ln -sf "$(basename "${TARGET}")" build/maliced
