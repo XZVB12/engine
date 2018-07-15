@@ -7,8 +7,6 @@ import (
 	"net"
 	"strconv"
 	"strings"
-
-	"github.com/ishidawataru/sctp"
 )
 
 // constants for the IP address type
@@ -18,15 +16,6 @@ const (
 	IPv6
 )
 
-// EncryptionKey is the libnetwork representation of the key distributed by the lead
-// manager.
-type EncryptionKey struct {
-	Subsystem   string
-	Algorithm   int32
-	Key         []byte
-	LamportTime uint64
-}
-
 // UUID represents a globally unique ID of various resources like network and endpoint
 type UUID string
 
@@ -35,7 +24,7 @@ type QosPolicy struct {
 	MaxEgressBandwidth uint64
 }
 
-// TransportPort represents a local Layer 4 endpoint
+// TransportPort represent a local Layer 4 endpoint
 type TransportPort struct {
 	Proto Protocol
 	Port  uint16
@@ -81,7 +70,7 @@ func (t *TransportPort) FromString(s string) error {
 	return BadRequestErrorf("invalid format for transport port: %s", s)
 }
 
-// PortBinding represents a port binding between the container and the host
+// PortBinding represent a port binding between the container and the host
 type PortBinding struct {
 	Proto       Protocol
 	IP          net.IP
@@ -98,8 +87,6 @@ func (p PortBinding) HostAddr() (net.Addr, error) {
 		return &net.UDPAddr{IP: p.HostIP, Port: int(p.HostPort)}, nil
 	case TCP:
 		return &net.TCPAddr{IP: p.HostIP, Port: int(p.HostPort)}, nil
-	case SCTP:
-		return &sctp.SCTPAddr{IP: []net.IP{p.HostIP}, Port: int(p.HostPort)}, nil
 	default:
 		return nil, ErrInvalidProtocolBinding(p.Proto.String())
 	}
@@ -112,8 +99,6 @@ func (p PortBinding) ContainerAddr() (net.Addr, error) {
 		return &net.UDPAddr{IP: p.IP, Port: int(p.Port)}, nil
 	case TCP:
 		return &net.TCPAddr{IP: p.IP, Port: int(p.Port)}, nil
-	case SCTP:
-		return &sctp.SCTPAddr{IP: []net.IP{p.IP}, Port: int(p.Port)}, nil
 	default:
 		return nil, ErrInvalidProtocolBinding(p.Proto.String())
 	}
@@ -131,15 +116,15 @@ func (p *PortBinding) GetCopy() PortBinding {
 	}
 }
 
-// String returns the PortBinding structure in string form
+// String return the PortBinding structure in string form
 func (p *PortBinding) String() string {
 	ret := fmt.Sprintf("%s/", p.Proto)
 	if p.IP != nil {
-		ret += p.IP.String()
+		ret = fmt.Sprintf("%s%s", ret, p.IP.String())
 	}
 	ret = fmt.Sprintf("%s:%d/", ret, p.Port)
 	if p.HostIP != nil {
-		ret += p.HostIP.String()
+		ret = fmt.Sprintf("%s%s", ret, p.HostIP.String())
 	}
 	ret = fmt.Sprintf("%s:%d", ret, p.HostPort)
 	return ret
@@ -239,11 +224,9 @@ const (
 	TCP = 6
 	// UDP is for the UDP ip protocol
 	UDP = 17
-	// SCTP is for the SCTP ip protocol
-	SCTP = 132
 )
 
-// Protocol represents an IP protocol number
+// Protocol represents a IP protocol number
 type Protocol uint8
 
 func (p Protocol) String() string {
@@ -254,8 +237,6 @@ func (p Protocol) String() string {
 		return "tcp"
 	case UDP:
 		return "udp"
-	case SCTP:
-		return "sctp"
 	default:
 		return fmt.Sprintf("%d", p)
 	}
@@ -270,8 +251,6 @@ func ParseProtocol(s string) Protocol {
 		return UDP
 	case "tcp":
 		return TCP
-	case "sctp":
-		return SCTP
 	default:
 		return 0
 	}

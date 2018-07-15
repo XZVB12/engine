@@ -11,7 +11,7 @@ This is the malice re-write and is not yet ready for general consumption. :warni
 ## Install
 
 ```sh
-$ brew install maliceio/tap/engine
+brew install maliceio/tap/engine
 ```
 
 ## Docker Image

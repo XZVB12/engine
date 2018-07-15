@@ -1,8 +1,3 @@
-plugin
-======
+# plugin/
 
-Contains the **malice** code that manages **plugins**
-
-Design
-------
-
+> `plugin/` is for code that interfaces with **malice** plugins

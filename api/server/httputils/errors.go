@@ -1,25 +1,17 @@
-package httputils
+package httputils // import "github.com/docker/docker/api/server/httputils"
 
 import (
 	"fmt"
 	"net/http"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/versions"
+	"github.com/docker/docker/errdefs"
 	"github.com/gorilla/mux"
-	"github.com/maliceio/engine/api/errdefs"
-	"github.com/maliceio/engine/api/types"
-	"github.com/maliceio/engine/api/types/versions"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 )
-
-// httpStatusError is an interface
-// that errors with custom status codes
-// implement to tell the api layer
-// which response status to set.
-type httpStatusError interface {
-	HTTPErrorStatusCode() int
-}
 
 type causer interface {
 	Cause() error
@@ -28,7 +20,7 @@ type causer interface {
 // GetHTTPErrorStatusCode retrieves status code from error message.
 func GetHTTPErrorStatusCode(err error) int {
 	if err == nil {
-		log.WithFields(log.Fields{"error": err}).Error("unexpected HTTP error handling")
+		logrus.WithFields(logrus.Fields{"error": err}).Error("unexpected HTTP error handling")
 		return http.StatusInternalServerError
 	}
 
@@ -43,7 +35,7 @@ func GetHTTPErrorStatusCode(err error) int {
 		statusCode = http.StatusNotFound
 	case errdefs.IsInvalidParameter(err):
 		statusCode = http.StatusBadRequest
-	case errdefs.IsConflict(err):
+	case errdefs.IsConflict(err) || errdefs.IsAlreadyExists(err):
 		statusCode = http.StatusConflict
 	case errdefs.IsUnauthorized(err):
 		statusCode = http.StatusUnauthorized
@@ -55,7 +47,7 @@ func GetHTTPErrorStatusCode(err error) int {
 		statusCode = http.StatusNotModified
 	case errdefs.IsNotImplemented(err):
 		statusCode = http.StatusNotImplemented
-	case errdefs.IsSystem(err) || errdefs.IsUnknown(err):
+	case errdefs.IsSystem(err) || errdefs.IsUnknown(err) || errdefs.IsDataLoss(err) || errdefs.IsDeadline(err) || errdefs.IsCancelled(err):
 		statusCode = http.StatusInternalServerError
 	default:
 		statusCode = statusCodeFromGRPCError(err)
@@ -67,7 +59,7 @@ func GetHTTPErrorStatusCode(err error) int {
 			return GetHTTPErrorStatusCode(e.Cause())
 		}
 
-		log.WithFields(log.Fields{
+		logrus.WithFields(logrus.Fields{
 			"module":     "api",
 			"error_type": fmt.Sprintf("%T", err),
 		}).Debugf("FIXME: Got an API for which error does not match any expected type!!!: %+v", err)

@@ -1,7 +1,6 @@
 package datastore
 
 import (
-	"errors"
 	"fmt"
 	"sync"
 
@@ -37,7 +36,7 @@ func (c *cache) kmap(kvObject KVObject) (kvMap, error) {
 	// Bail out right away if the kvObject does not implement KVConstructor
 	ctor, ok := kvObject.(KVConstructor)
 	if !ok {
-		return nil, errors.New("error while populating kmap, object does not implement KVConstructor interface")
+		return nil, fmt.Errorf("error while populating kmap, object does not implement KVConstructor interface")
 	}
 
 	kvList, err := c.ds.store.List(keyPrefix)
@@ -87,52 +86,25 @@ out:
 	return kmap, nil
 }
 
-func (c *cache) add(kvObject KVObject, atomic bool) error {
+func (c *cache) add(kvObject KVObject) error {
 	kmap, err := c.kmap(kvObject)
 	if err != nil {
 		return err
 	}
 
 	c.Lock()
-	// If atomic is true, cache needs to maintain its own index
-	// for atomicity and the add needs to be atomic.
-	if atomic {
-		if prev, ok := kmap[Key(kvObject.Key()...)]; ok {
-			if prev.Index() != kvObject.Index() {
-				c.Unlock()
-				return ErrKeyModified
-			}
-		}
-
-		// Increment index
-		index := kvObject.Index()
-		index++
-		kvObject.SetIndex(index)
-	}
-
 	kmap[Key(kvObject.Key()...)] = kvObject
 	c.Unlock()
 	return nil
 }
 
-func (c *cache) del(kvObject KVObject, atomic bool) error {
+func (c *cache) del(kvObject KVObject) error {
 	kmap, err := c.kmap(kvObject)
 	if err != nil {
 		return err
 	}
 
 	c.Lock()
-	// If atomic is true, cache needs to maintain its own index
-	// for atomicity and del needs to be atomic.
-	if atomic {
-		if prev, ok := kmap[Key(kvObject.Key()...)]; ok {
-			if prev.Index() != kvObject.Index() {
-				c.Unlock()
-				return ErrKeyModified
-			}
-		}
-	}
-
 	delete(kmap, Key(kvObject.Key()...))
 	c.Unlock()
 	return nil
@@ -154,7 +126,7 @@ func (c *cache) get(key string, kvObject KVObject) error {
 
 	ctor, ok := o.(KVConstructor)
 	if !ok {
-		return errors.New("kvobject does not implement KVConstructor interface. could not get object")
+		return fmt.Errorf("kvobject does not implement KVConstructor interface. could not get object")
 	}
 
 	return ctor.CopyTo(kvObject)

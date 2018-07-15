@@ -1,4 +1,3 @@
-
 builds:
   -
     main: ./cmd/maliced
@@ -6,7 +5,26 @@ builds:
     env:
       - CGO_ENABLED=0
     goos:
-      # - windows
+      - darwin
+      - linux
+    goarch:
+      - amd64
+    flags: -buildmode=pie
+    ldflags: |-
+      -s
+      -w
+      -X github.com/maliceio/engine/malice/version.Version={{.Version}}
+      -X github.com/maliceio/engine/malice/version.BuildTime={{.Date}}
+      -X github.com/maliceio/engine/malice/version.GitCommit={{.Commit}}
+    # hooks:
+    #   pre: rice embed-go
+    #   post: ./script.sh
+  -
+    main: ./cmd/malice
+    binary: malice
+    env:
+      - CGO_ENABLED=0
+    goos:
       - darwin
       - linux
     goarch:
@@ -21,14 +39,20 @@ builds:
 
 archive:
   format: tar.gz
-  format_overrides:
-    - goos: windows
-      format: zip
   replacements:
     amd64: amd64
     darwin: macOS
     linux: linux
-    windows: win
+  files:
+  - none*
+
+changelog:
+  filters:
+    exclude:
+      - '^docs:'
+      - typo
+      - (?i)foo
+  sort: asc
 
 sign:
    artifacts: checksum
@@ -41,8 +65,31 @@ brew:
   homepage: "https://github.com/maliceio/engine"
   description: "Open Source Malware Analysis Framework."
   install: |
+    bin.install "malice"
     bin.install "maliced"
+    zsh_completion.install "contrib/completion/zsh/_malice"
+    bash_completion.install "contrib/completion/bash/malice"
+  plist: |
+    <?xml version="1.0" encoding="UTF-8"?>
+    <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+    <plist version="1.0">
+      <dict>
+        <key>Label</key>
+        <string>#{plist_name}</string>
+        <key>Program</key>
+        <string>#{bin}/maliced</string>
+        <key>WorkingDirectory</key>
+        <string>#{HOMEBREW_PREFIX}</string>
+        <key>StandardOutPath</key>
+        <string>#{var}/log/maliced/maliced.log</string>
+        <key>StandardErrorPath</key>
+        <string>#{var}/log/maliced/malicedlog</string>
+        <key>RunAtLoad</key>
+        <true/>
+      </dict>
+    </plist>
   test: |
+    system "#{bin}/malice --version"
     system "#{bin}/maliced --version"
 
 nfpm:
@@ -54,6 +101,14 @@ nfpm:
   formats:
     - deb
     - rpm
+  files:
+    "contrib/completion/zsh/_malice": "$HOME/.zsh/completion/_malice"
+    "contrib/completion/bash/malice": "/etc/bash_completion.d/malice"
+  #   "scripts/etc/init.d/": "/etc/init.d"
+  #   "path/**/glob": "/var/foo/glob"
+  # config_files:
+  #   "tmp/app_generated.conf": "/etc/app.conf"
+  #   "conf/*.conf": "/etc/foo/"
 
 snapcraft:
   name: maliced

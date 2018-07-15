@@ -5,11 +5,11 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/sirupsen/logrus"
+	cliconfig "github.com/docker/docker/cli/config"
+	"github.com/docker/docker/daemon/config"
+	"github.com/docker/docker/opts"
 	"github.com/docker/go-connections/tlsconfig"
-	cliconfig "github.com/maliceio/engine/cli/config"
-	"github.com/maliceio/engine/daemon/config"
-	"github.com/maliceio/engine/opts"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 )
 
@@ -25,12 +25,11 @@ const (
 )
 
 var (
-	maliceCertPath  = os.Getenv("MALICE_CERT_PATH")
-	maliceTLSVerify = os.Getenv("MALICE_TLS_VERIFY") != ""
+	dockerCertPath  = os.Getenv("DOCKER_CERT_PATH")
+	dockerTLSVerify = os.Getenv("DOCKER_TLS_VERIFY") != ""
 )
 
 type daemonOptions struct {
-	version      bool
 	configFile   string
 	daemonConfig *config.Config
 	flags        *pflag.FlagSet
@@ -51,21 +50,21 @@ func newDaemonOptions(config *config.Config) *daemonOptions {
 
 // InstallFlags adds flags for the common options on the FlagSet
 func (o *daemonOptions) InstallFlags(flags *pflag.FlagSet) {
-	if maliceCertPath == "" {
-		maliceCertPath = cliconfig.Dir()
+	if dockerCertPath == "" {
+		dockerCertPath = cliconfig.Dir()
 	}
 
 	flags.BoolVarP(&o.Debug, "debug", "D", false, "Enable debug mode")
 	flags.StringVarP(&o.LogLevel, "log-level", "l", "info", `Set the logging level ("debug"|"info"|"warn"|"error"|"fatal")`)
 	flags.BoolVar(&o.TLS, "tls", false, "Use TLS; implied by --tlsverify")
-	flags.BoolVar(&o.TLSVerify, FlagTLSVerify, maliceTLSVerify, "Use TLS and verify the remote")
+	flags.BoolVar(&o.TLSVerify, FlagTLSVerify, dockerTLSVerify, "Use TLS and verify the remote")
 
 	// TODO use flag flags.String("identity"}, "i", "", "Path to libtrust key file")
 
 	o.TLSOptions = &tlsconfig.Options{
-		CAFile:   filepath.Join(maliceCertPath, DefaultCaFile),
-		CertFile: filepath.Join(maliceCertPath, DefaultCertFile),
-		KeyFile:  filepath.Join(maliceCertPath, DefaultKeyFile),
+		CAFile:   filepath.Join(dockerCertPath, DefaultCaFile),
+		CertFile: filepath.Join(dockerCertPath, DefaultCertFile),
+		KeyFile:  filepath.Join(dockerCertPath, DefaultKeyFile),
 	}
 	tlsOptions := o.TLSOptions
 	flags.Var(opts.NewQuotedString(&tlsOptions.CAFile), "tlscacert", "Trust certs signed only by this CA")
@@ -81,7 +80,7 @@ func (o *daemonOptions) InstallFlags(flags *pflag.FlagSet) {
 func (o *daemonOptions) SetDefaultOptions(flags *pflag.FlagSet) {
 	// Regardless of whether the user sets it to true or false, if they
 	// specify --tlsverify at all then we need to turn on TLS
-	// TLSVerify can be true even if not set due to MALICE_TLS_VERIFY env var, so we need
+	// TLSVerify can be true even if not set due to DOCKER_TLS_VERIFY env var, so we need
 	// to check that here as well
 	if flags.Changed(FlagTLSVerify) || o.TLSVerify {
 		o.TLS = true

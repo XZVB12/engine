@@ -1,41 +1,53 @@
 package memdb
 
 import (
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"reflect"
 	"strings"
 )
 
-// Indexer is an interface used for defining indexes
+// Indexer is an interface used for defining indexes. Indexes are used
+// for efficient lookup of objects in a MemDB table. An Indexer must also
+// implement one of SingleIndexer or MultiIndexer.
+//
+// Indexers are primarily responsible for returning the lookup key as
+// a byte slice. The byte slice is the key data in the underlying data storage.
 type Indexer interface {
-	// ExactFromArgs is used to build an exact index lookup
-	// based on arguments
+	// FromArgs is called to build the exact index key from a list of arguments.
 	FromArgs(args ...interface{}) ([]byte, error)
 }
 
-// SingleIndexer is an interface used for defining indexes
-// generating a single entry per object
+// SingleIndexer is an interface used for defining indexes that generate a
+// single value per object
 type SingleIndexer interface {
-	// FromObject is used to extract an index value from an
-	// object or to indicate that the index value is missing.
+	// FromObject extracts the index value from an object. The return values
+	// are whether the index value was found, the index value, and any error
+	// while extracting the index value, respectively.
 	FromObject(raw interface{}) (bool, []byte, error)
 }
 
-// MultiIndexer is an interface used for defining indexes
-// generating multiple entries per object
+// MultiIndexer is an interface used for defining indexes that generate
+// multiple values per object. Each value is stored as a seperate index
+// pointing to the same object.
+//
+// For example, an index that extracts the first and last name of a person
+// and allows lookup based on eitherd would be a MultiIndexer. The FromObject
+// of this example would split the first and last name and return both as
+// values.
 type MultiIndexer interface {
-	// FromObject is used to extract index values from an
-	// object or to indicate that the index value is missing.
+	// FromObject extracts index values from an object. The return values
+	// are the same as a SingleIndexer except there can be multiple index
+	// values.
 	FromObject(raw interface{}) (bool, [][]byte, error)
 }
 
-// PrefixIndexer can optionally be implemented for any
-// indexes that support prefix based iteration. This may
-// not apply to all indexes.
+// PrefixIndexer is an optional interface on top of an Indexer that allows
+// indexes to support prefix-based iteration.
 type PrefixIndexer interface {
-	// PrefixFromArgs returns a prefix that should be used
-	// for scanning based on the arguments
+	// PrefixFromArgs is the same as FromArgs for an Indexer except that
+	// the index value returned should return all prefix-matched values.
 	PrefixFromArgs(args ...interface{}) ([]byte, error)
 }
 
@@ -100,8 +112,9 @@ func (s *StringFieldIndex) PrefixFromArgs(args ...interface{}) ([]byte, error) {
 	return val, nil
 }
 
-// StringSliceFieldIndex is used to extract a field from an object
-// using reflection and builds an index on that field.
+// StringSliceFieldIndex builds an index from a field on an object that is a
+// string slice ([]string). Each value within the string slice can be used for
+// lookup.
 type StringSliceFieldIndex struct {
 	Field     string
 	Lowercase bool
@@ -171,6 +184,155 @@ func (s *StringSliceFieldIndex) PrefixFromArgs(args ...interface{}) ([]byte, err
 		return val[:n-1], nil
 	}
 	return val, nil
+}
+
+// StringMapFieldIndex is used to extract a field of type map[string]string
+// from an object using reflection and builds an index on that field.
+type StringMapFieldIndex struct {
+	Field     string
+	Lowercase bool
+}
+
+var MapType = reflect.MapOf(reflect.TypeOf(""), reflect.TypeOf("")).Kind()
+
+func (s *StringMapFieldIndex) FromObject(obj interface{}) (bool, [][]byte, error) {
+	v := reflect.ValueOf(obj)
+	v = reflect.Indirect(v) // Dereference the pointer if any
+
+	fv := v.FieldByName(s.Field)
+	if !fv.IsValid() {
+		return false, nil, fmt.Errorf("field '%s' for %#v is invalid", s.Field, obj)
+	}
+
+	if fv.Kind() != MapType {
+		return false, nil, fmt.Errorf("field '%s' is not a map[string]string", s.Field)
+	}
+
+	length := fv.Len()
+	vals := make([][]byte, 0, length)
+	for _, key := range fv.MapKeys() {
+		k := key.String()
+		if k == "" {
+			continue
+		}
+		val := fv.MapIndex(key).String()
+
+		if s.Lowercase {
+			k = strings.ToLower(k)
+			val = strings.ToLower(val)
+		}
+
+		// Add the null character as a terminator
+		k += "\x00" + val + "\x00"
+
+		vals = append(vals, []byte(k))
+	}
+	if len(vals) == 0 {
+		return false, nil, nil
+	}
+	return true, vals, nil
+}
+
+func (s *StringMapFieldIndex) FromArgs(args ...interface{}) ([]byte, error) {
+	if len(args) > 2 || len(args) == 0 {
+		return nil, fmt.Errorf("must provide one or two arguments")
+	}
+	key, ok := args[0].(string)
+	if !ok {
+		return nil, fmt.Errorf("argument must be a string: %#v", args[0])
+	}
+	if s.Lowercase {
+		key = strings.ToLower(key)
+	}
+	// Add the null character as a terminator
+	key += "\x00"
+
+	if len(args) == 2 {
+		val, ok := args[1].(string)
+		if !ok {
+			return nil, fmt.Errorf("argument must be a string: %#v", args[1])
+		}
+		if s.Lowercase {
+			val = strings.ToLower(val)
+		}
+		// Add the null character as a terminator
+		key += val + "\x00"
+	}
+
+	return []byte(key), nil
+}
+
+// UintFieldIndex is used to extract a uint field from an object using
+// reflection and builds an index on that field.
+type UintFieldIndex struct {
+	Field string
+}
+
+func (u *UintFieldIndex) FromObject(obj interface{}) (bool, []byte, error) {
+	v := reflect.ValueOf(obj)
+	v = reflect.Indirect(v) // Dereference the pointer if any
+
+	fv := v.FieldByName(u.Field)
+	if !fv.IsValid() {
+		return false, nil,
+			fmt.Errorf("field '%s' for %#v is invalid", u.Field, obj)
+	}
+
+	// Check the type
+	k := fv.Kind()
+	size, ok := IsUintType(k)
+	if !ok {
+		return false, nil, fmt.Errorf("field %q is of type %v; want a uint", u.Field, k)
+	}
+
+	// Get the value and encode it
+	val := fv.Uint()
+	buf := make([]byte, size)
+	binary.PutUvarint(buf, val)
+
+	return true, buf, nil
+}
+
+func (u *UintFieldIndex) FromArgs(args ...interface{}) ([]byte, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("must provide only a single argument")
+	}
+
+	v := reflect.ValueOf(args[0])
+	if !v.IsValid() {
+		return nil, fmt.Errorf("%#v is invalid", args[0])
+	}
+
+	k := v.Kind()
+	size, ok := IsUintType(k)
+	if !ok {
+		return nil, fmt.Errorf("arg is of type %v; want a uint", k)
+	}
+
+	val := v.Uint()
+	buf := make([]byte, size)
+	binary.PutUvarint(buf, val)
+
+	return buf, nil
+}
+
+// IsUintType returns whether the passed type is a type of uint and the number
+// of bytes needed to encode the type.
+func IsUintType(k reflect.Kind) (size int, okay bool) {
+	switch k {
+	case reflect.Uint:
+		return binary.MaxVarintLen64, true
+	case reflect.Uint8:
+		return 2, true
+	case reflect.Uint16:
+		return binary.MaxVarintLen16, true
+	case reflect.Uint32:
+		return binary.MaxVarintLen32, true
+	case reflect.Uint64:
+		return binary.MaxVarintLen64, true
+	default:
+		return 0, false
+	}
 }
 
 // UUIDFieldIndex is used to extract a field from an object

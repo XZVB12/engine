@@ -1,18 +1,19 @@
 package server
 
 import (
+	"context"
 	"crypto/tls"
 	"net"
 	"net/http"
 	"strings"
 
 	"github.com/gorilla/mux"
+	"github.com/maliceio/engine.OLD/api/server/middleware"
 	"github.com/maliceio/engine/api/server/httputils"
 	"github.com/maliceio/engine/api/server/middleware"
 	"github.com/maliceio/engine/api/server/router"
-	"github.com/maliceio/engine/malice/version"
+	"github.com/maliceio/engine/version"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
 )
 
 // versionMatcher defines a variable matcher to be parsed by the router
@@ -43,12 +44,6 @@ func New(cfg *Config) *Server {
 	return &Server{
 		cfg: cfg,
 	}
-}
-
-// UseMiddleware appends a new middleware to the request chain.
-// This needs to be called before the API routes are configured.
-func (s *Server) UseMiddleware(m middleware.Middleware) {
-	s.middlewares = append(s.middlewares, m)
 }
 
 // Accept sets a listener the server accepts connections into.
@@ -125,7 +120,11 @@ func (s *Server) makeHTTPHandler(handler httputils.APIFunc) http.HandlerFunc {
 		// apply to all requests. Data that is specific to the
 		// immediate function being called should still be passed
 		// as 'args' on the function call.
-		ctx := context.WithValue(context.Background(), version.UAStringKey, r.Header.Get("User-Agent"))
+
+		// use intermediate variable to prevent "should not use basic type
+		// string as key in context.WithValue" golint errors
+		var ki interface{} = version.UAStringKey
+		ctx := context.WithValue(context.Background(), ki, r.Header.Get("User-Agent"))
 		handlerFunc := s.handlerWithGlobalMiddlewares(handler)
 
 		vars := mux.Vars(r)
@@ -144,7 +143,7 @@ func (s *Server) makeHTTPHandler(handler httputils.APIFunc) http.HandlerFunc {
 }
 
 // InitRouter initializes the list of routers for the server.
-// This method also enables the Go profiler if enableProfiler is true.
+// This method also enables the Go profiler.
 func (s *Server) InitRouter(routers ...router.Router) {
 	s.routers = append(s.routers, routers...)
 

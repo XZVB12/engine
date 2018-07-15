@@ -1,5 +1,4 @@
-Malice Engine API
-=================
+# Malice Engine API
 
 The Engine API is an HTTP API used by the command-line client to communicate with the daemon. It can also be used by third-party software to control the daemon.
 

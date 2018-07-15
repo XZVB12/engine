@@ -17,7 +17,7 @@ RUN hack/build/binary
 #############################################
 ## [malice image] ###########################
 #############################################
-FROM alpine:3.6
+FROM alpine:3.7
 
 LABEL maintainer "https://github.com/blacktop"
 
