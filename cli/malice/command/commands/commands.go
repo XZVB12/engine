@@ -1,13 +1,13 @@
 package commands
 
 import (
-	"github.com/maliceio/cli/cli/command"
-	"github.com/maliceio/cli/cli/command/plugin"
-	"github.com/maliceio/cli/cli/command/scan"
-	"github.com/maliceio/cli/cli/command/search"
-	"github.com/maliceio/cli/cli/command/swarm"
-	"github.com/maliceio/cli/cli/command/watch"
-	"github.com/maliceio/cli/cli/command/web"
+	"github.com/maliceio/engine/cli/malice/command"
+	"github.com/maliceio/engine/cli/malice/command/plugin"
+	"github.com/maliceio/engine/cli/malice/command/scan"
+	"github.com/maliceio/engine/cli/malice/command/search"
+	"github.com/maliceio/engine/cli/malice/command/swarm"
+	"github.com/maliceio/engine/cli/malice/command/watch"
+	"github.com/maliceio/engine/cli/malice/command/web"
 	"github.com/spf13/cobra"
 )
 

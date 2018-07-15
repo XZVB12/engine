@@ -26,8 +26,8 @@ import (
 	"github.com/docker/notary/trustpinning"
 	"github.com/docker/notary/tuf/data"
 	"github.com/docker/notary/tuf/signed"
-	"github.com/maliceio/cli/cli/command"
-	cliconfig "github.com/maliceio/cli/cli/config"
+	"github.com/maliceio/engine/cli/malice/command"
+	cliconfig "github.com/maliceio/engine/cli/malice/config"
 	"github.com/pkg/errors"
 )
 

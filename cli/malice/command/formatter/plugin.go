@@ -3,9 +3,9 @@ package formatter
 import (
 	"strings"
 
-	"github.com/maliceio/engine/api/types"
-	"github.com/maliceio/engine/pkg/stringid"
-	"github.com/maliceio/engine/pkg/stringutils"
+	"github.com/maliceio/engine/api/types/plugin"
+
+	"github.com/docker/docker/pkg/stringid"
 )
 
 const (
@@ -34,7 +34,7 @@ func NewPluginFormat(source string, quiet bool) Format {
 }
 
 // PluginWrite writes the context
-func PluginWrite(ctx Context, plugins []*types.Plugin) error {
+func PluginWrite(ctx Context, plugins []*plugin.Plugin) error {
 	render := func(format func(subContext subContext) error) error {
 		for _, plugin := range plugins {
 			pluginCtx := &pluginContext{trunc: ctx.Trunc, p: *plugin}
@@ -58,7 +58,7 @@ func PluginWrite(ctx Context, plugins []*types.Plugin) error {
 type pluginContext struct {
 	HeaderContext
 	trunc bool
-	p     types.Plugin
+	p     plugin.Plugin
 }
 
 func (c *pluginContext) MarshalJSON() ([]byte, error) {
@@ -80,7 +80,7 @@ func (c *pluginContext) Description() string {
 	desc := strings.Replace(c.p.Config.Description, "\n", "", -1)
 	desc = strings.Replace(desc, "\r", "", -1)
 	if c.trunc {
-		desc = stringutils.Ellipsis(desc, 45)
+		desc = Ellipsis(desc, 45)
 	}
 
 	return desc
@@ -91,5 +91,5 @@ func (c *pluginContext) Enabled() bool {
 }
 
 func (c *pluginContext) PluginReference() string {
-	return c.p.PluginReference
+	return c.p.Reference
 }

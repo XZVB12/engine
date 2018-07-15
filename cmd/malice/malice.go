@@ -5,11 +5,11 @@ import (
 	"os"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/maliceio/cli/cli"
-	"github.com/maliceio/cli/cli/command"
-	"github.com/maliceio/cli/cli/command/commands"
-	cliflags "github.com/maliceio/cli/cli/flags"
+	"github.com/maliceio/engine/cli/malice"
+	"github.com/maliceio/engine/cli/malice/command"
+	"github.com/maliceio/engine/cli/malice/command/commands"
 	cliconfig "github.com/maliceio/engine/cli/malice/config"
+	cliflags "github.com/maliceio/engine/cli/malice/flags"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )

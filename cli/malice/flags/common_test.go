@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	cliconfig "github.com/maliceio/cli/cli/config"
+	cliconfig "github.com/maliceio/engine/cli/malice/config"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 )

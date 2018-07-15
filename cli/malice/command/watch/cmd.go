@@ -1,8 +1,8 @@
 package watch
 
 import (
-	"github.com/maliceio/cli/cli"
-	"github.com/maliceio/cli/cli/command"
+	"github.com/maliceio/engine/cli/malice"
+	"github.com/maliceio/engine/cli/malice/command"
 	"github.com/spf13/cobra"
 )
 

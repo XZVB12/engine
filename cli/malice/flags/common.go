@@ -7,8 +7,8 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/docker/go-connections/tlsconfig"
-	cliconfig "github.com/maliceio/cli/cli/config"
 	"github.com/maliceio/cli/opts"
+	cliconfig "github.com/maliceio/engine/cli/malice/config"
 	"github.com/spf13/pflag"
 )
 

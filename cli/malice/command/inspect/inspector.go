@@ -8,8 +8,8 @@ import (
 	"text/template"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/maliceio/cli/cli"
 	"github.com/maliceio/cli/templates"
+	"github.com/maliceio/engine/cli/malice"
 	"github.com/pkg/errors"
 )
 

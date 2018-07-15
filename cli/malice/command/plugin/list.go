@@ -1,10 +1,10 @@
 package plugin
 
 import (
-	"github.com/maliceio/cli/cli"
-	"github.com/maliceio/cli/cli/command"
-	"github.com/maliceio/cli/cli/command/formatter"
 	"github.com/maliceio/cli/opts"
+	"github.com/maliceio/engine/cli/malice"
+	"github.com/maliceio/engine/cli/malice/command"
+	"github.com/maliceio/engine/cli/malice/command/formatter"
 	"github.com/spf13/cobra"
 	"golang.org/x/net/context"
 )
