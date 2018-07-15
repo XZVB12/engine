@@ -50,8 +50,11 @@ changelog:
   filters:
     exclude:
       - '^docs:'
-      - typo
-      - (?i)foo
+      - update README
+      - '^update vendor'
+      - '^small'
+      - updates
+      - fixes
   sort: asc
 
 sign:

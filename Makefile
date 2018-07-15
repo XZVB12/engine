@@ -83,6 +83,11 @@ release: ## Create a new release from the VERSION
 	@hack/make/release ${VERSION}
 	@goreleaser --rm-dist
 
+.PHONY: test_release
+test_release: ## Test run goreleaser
+	@echo "===> Testing Release"
+	@goreleaser release --skip-publish --rm-dist --skip-validate
+
 .PHONY: circle
 circle: ci-size ## Get docker image size from CircleCI
 	@sed -i.bu 's/docker%20image-.*-blue/docker%20image-$(shell cat .circleci/SIZE)-blue/' README.md
