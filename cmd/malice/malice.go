@@ -8,8 +8,8 @@ import (
 	"github.com/maliceio/cli/cli"
 	"github.com/maliceio/cli/cli/command"
 	"github.com/maliceio/cli/cli/command/commands"
-	cliconfig "github.com/maliceio/cli/cli/config"
 	cliflags "github.com/maliceio/cli/cli/flags"
+	cliconfig "github.com/maliceio/engine/cli/malice/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
