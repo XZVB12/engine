@@ -19,3 +19,11 @@ type Version struct {
 	Experimental  bool   `json:",omitempty"`
 	BuildTime     string `json:",omitempty"`
 }
+
+// Ping contains response of Engine API:
+// GET "/_ping"
+type Ping struct {
+	APIVersion   string
+	OSType       string
+	Experimental bool
+}

@@ -1,10 +1,12 @@
 package client
 
 import (
+	"io"
 	"net"
 
 	"github.com/maliceio/engine/api/types"
 	"github.com/maliceio/engine/api/types/filters"
+	"github.com/maliceio/engine/api/types/plugin"
 	"golang.org/x/net/context"
 )
 
@@ -111,12 +113,12 @@ type CommonAPIClient interface {
 
 // PluginAPIClient defines API client methods for the plugins
 type PluginAPIClient interface {
-	PluginList(ctx context.Context, filter filters.Args) (types.PluginsListResponse, error)
-	// PluginRemove(ctx context.Context, name string, options types.PluginRemoveOptions) error
-	// PluginEnable(ctx context.Context, name string, options types.PluginEnableOptions) error
-	// PluginDisable(ctx context.Context, name string, options types.PluginDisableOptions) error
-	// PluginInstall(ctx context.Context, name string, options types.PluginInstallOptions) (io.ReadCloser, error)
-	// PluginUpgrade(ctx context.Context, name string, options types.PluginInstallOptions) (io.ReadCloser, error)
+	PluginList(ctx context.Context, filter filters.Args) (plugin.ListResponse, error)
+	PluginRemove(ctx context.Context, name string, options plugin.RemoveOptions) error
+	PluginEnable(ctx context.Context, name string, options plugin.EnableOptions) error
+	PluginDisable(ctx context.Context, name string, options plugin.DisableOptions) error
+	PluginInstall(ctx context.Context, name string, options plugin.InstallOptions) (io.ReadCloser, error)
+	PluginUpgrade(ctx context.Context, name string, options plugin.InstallOptions) (io.ReadCloser, error)
 	// PluginPush(ctx context.Context, name string, registryAuth string) (io.ReadCloser, error)
 	// PluginSet(ctx context.Context, name string, args []string) error
 	// PluginInspectWithRaw(ctx context.Context, name string) (*types.Plugin, []byte, error)

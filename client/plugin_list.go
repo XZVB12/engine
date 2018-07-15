@@ -4,14 +4,14 @@ import (
 	"encoding/json"
 	"net/url"
 
-	"github.com/maliceio/engine/api/types"
 	"github.com/maliceio/engine/api/types/filters"
+	"github.com/maliceio/engine/api/types/plugin"
 	"golang.org/x/net/context"
 )
 
 // PluginList returns the installed plugins
-func (cli *Client) PluginList(ctx context.Context, filter filters.Args) (types.PluginsListResponse, error) {
-	var plugins types.PluginsListResponse
+func (cli *Client) PluginList(ctx context.Context, filter filters.Args) (plugin.ListResponse, error) {
+	var plugins plugin.ListResponse
 	query := url.Values{}
 
 	if filter.Len() > 0 {
