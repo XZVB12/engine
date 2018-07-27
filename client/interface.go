@@ -3,6 +3,7 @@ package client
 import (
 	"io"
 	"net"
+	"net/http"
 
 	"github.com/maliceio/engine/api/types"
 	"github.com/maliceio/engine/api/types/filters"
@@ -26,10 +27,12 @@ type CommonAPIClient interface {
 	// VolumeAPIClient
 	ClientVersion() string
 	DaemonHost() string
+	HTTPClient() *http.Client
 	ServerVersion(ctx context.Context) (types.Version, error)
 	NegotiateAPIVersion(ctx context.Context)
 	NegotiateAPIVersionPing(types.Ping)
 	DialSession(ctx context.Context, proto string, meta map[string][]string) (net.Conn, error)
+	Close() error
 }
 
 // // ContainerAPIClient defines API client methods for the containers

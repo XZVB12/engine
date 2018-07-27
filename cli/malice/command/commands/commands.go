@@ -5,7 +5,6 @@ import (
 	"github.com/maliceio/engine/cli/malice/command/plugin"
 	"github.com/maliceio/engine/cli/malice/command/scan"
 	"github.com/maliceio/engine/cli/malice/command/search"
-	"github.com/maliceio/engine/cli/malice/command/swarm"
 	"github.com/maliceio/engine/cli/malice/command/watch"
 	"github.com/maliceio/engine/cli/malice/command/web"
 	"github.com/spf13/cobra"
@@ -18,7 +17,7 @@ func AddCommands(cmd *cobra.Command, maliceCli *command.MaliceCli) {
 		plugin.NewPluginCommand(maliceCli),
 
 		// swarm
-		swarm.NewSwarmCommand(maliceCli),
+		// swarm.NewSwarmCommand(maliceCli),
 
 		// watch
 		watch.NewWatchCommand(maliceCli),

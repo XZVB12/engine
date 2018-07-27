@@ -32,3 +32,15 @@
 [[constraint]]
   name = "github.com/pkg/errors"
   version = "0.8.0"
+
+[[constraint]]
+  name = "github.com/sirupsen/logrus"
+  version = "1.0.5"
+
+[[constraint]]
+  name = "github.com/docker/docker-credential-helpers"
+  version = "0.6.0"
+
+[[override]]
+  name = "github.com/docker/engine"
+  version = "17.03.2-ce"

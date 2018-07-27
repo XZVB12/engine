@@ -1,10 +1,14 @@
 package config
 
 import (
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
+	"github.com/maliceio/engine/api/types"
 	"github.com/maliceio/engine/cli/malice/config/configfile"
+	"github.com/maliceio/engine/cli/malice/config/credentials"
 	"github.com/maliceio/engine/pkg/homedir"
 	"github.com/pkg/errors"
 )
@@ -13,6 +17,7 @@ const (
 	// ConfigFileName is the name of config file
 	ConfigFileName = "config.json"
 	configFileDir  = ".malice"
+	oldConfigfile  = ".malicecfg"
 )
 
 var (
@@ -35,13 +40,24 @@ func SetDir(dir string) {
 	configDir = dir
 }
 
-// NewConfigFile initializes an empty configuration file for the given filename 'fn'
-func NewConfigFile(fn string) *configfile.ConfigFile {
-	return &configfile.ConfigFile{
-		// AuthConfigs: make(map[string]types.AuthConfig),
-		// HTTPHeaders: make(map[string]string),
-		Filename: fn,
+// LegacyLoadFromReader is a convenience function that creates a ConfigFile object from
+// a non-nested reader
+func LegacyLoadFromReader(configData io.Reader) (*configfile.ConfigFile, error) {
+	configFile := configfile.ConfigFile{
+		AuthConfigs: make(map[string]types.AuthConfig),
 	}
+	err := configFile.LegacyLoadFromReader(configData)
+	return &configFile, err
+}
+
+// LoadFromReader is a convenience function that creates a ConfigFile object from
+// a reader
+func LoadFromReader(configData io.Reader) (*configfile.ConfigFile, error) {
+	configFile := configfile.ConfigFile{
+		AuthConfigs: make(map[string]types.AuthConfig),
+	}
+	err := configFile.LoadFromReader(configData)
+	return &configFile, err
 }
 
 // Load reads the configuration files in the given directory, and sets up
@@ -59,18 +75,46 @@ func Load(configDir string) (*configfile.ConfigFile, error) {
 	if _, err := os.Stat(filename); err == nil {
 		file, err := os.Open(filename)
 		if err != nil {
-			return configFile, errors.Errorf("%s - %v", filename, err)
+			return configFile, errors.Wrap(err, filename)
 		}
 		defer file.Close()
 		err = configFile.LoadFromReader(file)
 		if err != nil {
-			err = errors.Errorf("%s - %v", filename, err)
+			err = errors.Wrap(err, filename)
 		}
 		return configFile, err
 	} else if !os.IsNotExist(err) {
 		// if file is there but we can't stat it for any reason other
 		// than it doesn't exist then stop
-		return configFile, errors.Errorf("%s - %v", filename, err)
+		return configFile, errors.Wrap(err, filename)
+	}
+
+	// Can't find latest config file so check for the old one
+	confFile := filepath.Join(homedir.Get(), oldConfigfile)
+	if _, err := os.Stat(confFile); err != nil {
+		return configFile, nil //missing file is not an error
+	}
+	file, err := os.Open(confFile)
+	if err != nil {
+		return configFile, errors.Wrap(err, confFile)
+	}
+	defer file.Close()
+	err = configFile.LegacyLoadFromReader(file)
+	if err != nil {
+		return configFile, errors.Wrap(err, confFile)
 	}
 	return configFile, nil
+}
+
+// LoadDefaultConfigFile attempts to load the default config file and returns
+// an initialized ConfigFile struct if none is found.
+func LoadDefaultConfigFile(stderr io.Writer) *configfile.ConfigFile {
+	configFile, err := Load(Dir())
+	if err != nil {
+		fmt.Fprintf(stderr, "WARNING: Error loading config file: %v\n", err)
+	}
+	if !configFile.ContainsAuth() {
+		configFile.CredentialsStore = credentials.DetectDefaultStore(configFile.CredentialsStore)
+	}
+	return configFile
 }

@@ -3,12 +3,12 @@ package client
 import (
 	"net/url"
 
-	"github.com/docker/docker/api/types"
+	"github.com/maliceio/engine/api/types/plugin"
 	"golang.org/x/net/context"
 )
 
 // PluginDisable disables a plugin
-func (cli *Client) PluginDisable(ctx context.Context, name string, options types.PluginDisableOptions) error {
+func (cli *Client) PluginDisable(ctx context.Context, name string, options plugin.DisableOptions) error {
 	query := url.Values{}
 	if options.Force {
 		query.Set("force", "1")

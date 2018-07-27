@@ -6,17 +6,19 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/docker/docker/pkg/system"
 	"github.com/maliceio/engine/api/types/filters"
+	"github.com/spf13/pflag"
 )
 
 // CopyToFile writes the content of the reader to the specified file
 func CopyToFile(outfile string, r io.Reader) error {
 	// We use sequential file access here to avoid depleting the standby list
 	// on Windows. On Linux, this is a call directly to ioutil.TempFile
-	tmpFile, err := system.TempFileSequential(filepath.Dir(outfile), ".malice_temp_")
+	tmpFile, err := system.TempFileSequential(filepath.Dir(outfile), ".docker_temp_")
 	if err != nil {
 		return err
 	}
@@ -77,9 +79,9 @@ func PromptForConfirmation(ins io.Reader, outs io.Writer, message string) bool {
 	fmt.Fprintf(outs, message)
 
 	// On Windows, force the use of the regular OS stdin stream.
-	// if runtime.GOOS == "windows" {
-	// 	ins = NewInStream(os.Stdin)
-	// }
+	if runtime.GOOS == "windows" {
+		ins = NewInStream(os.Stdin)
+	}
 
 	reader := bufio.NewReader(ins)
 	answer, _, _ := reader.ReadLine()
@@ -87,11 +89,11 @@ func PromptForConfirmation(ins io.Reader, outs io.Writer, message string) bool {
 }
 
 // PruneFilters returns consolidated prune filters obtained from config.json and cli
-func PruneFilters(maliceCli Cli, pruneFilters filters.Args) filters.Args {
-	if maliceCli.ConfigFile() == nil {
+func PruneFilters(dockerCli Cli, pruneFilters filters.Args) filters.Args {
+	if dockerCli.ConfigFile() == nil {
 		return pruneFilters
 	}
-	for _, f := range maliceCli.ConfigFile().PruneFilters {
+	for _, f := range dockerCli.ConfigFile().PruneFilters {
 		parts := strings.SplitN(f, "=", 2)
 		if len(parts) != 2 {
 			continue
@@ -115,4 +117,11 @@ func PruneFilters(maliceCli Cli, pruneFilters filters.Args) filters.Args {
 	}
 
 	return pruneFilters
+}
+
+// AddPlatformFlag adds `platform` to a set of flags for API version 1.32 and later.
+func AddPlatformFlag(flags *pflag.FlagSet, target *string) {
+	flags.StringVar(target, "platform", os.Getenv("DOCKER_DEFAULT_PLATFORM"), "Set platform if server is multi-platform capable")
+	flags.SetAnnotation("platform", "version", []string{"1.32"})
+	flags.SetAnnotation("platform", "experimental", nil)
 }

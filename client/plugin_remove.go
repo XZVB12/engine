@@ -3,12 +3,12 @@ package client
 import (
 	"net/url"
 
-	"github.com/docker/docker/api/types"
+	"github.com/maliceio/engine/api/types/plugin"
 	"golang.org/x/net/context"
 )
 
 // PluginRemove removes a plugin
-func (cli *Client) PluginRemove(ctx context.Context, name string, options types.PluginRemoveOptions) error {
+func (cli *Client) PluginRemove(ctx context.Context, name string, options plugin.RemoveOptions) error {
 	query := url.Values{}
 	if options.Force {
 		query.Set("force", "1")

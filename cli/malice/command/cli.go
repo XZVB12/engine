@@ -1,57 +1,97 @@
 package command
 
 import (
-	"fmt"
+	"context"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"runtime"
+	"time"
 
-	"github.com/docker/go-connections/sockets"
 	"github.com/docker/go-connections/tlsconfig"
-	mopts "github.com/maliceio/cli/opts"
 	"github.com/maliceio/engine/api"
-	"github.com/maliceio/engine/cli/malice"
 	cliconfig "github.com/maliceio/engine/cli/malice/config"
 	"github.com/maliceio/engine/cli/malice/config/configfile"
 	cliflags "github.com/maliceio/engine/cli/malice/flags"
+	mopts "github.com/maliceio/engine/opts/malice"
+	"github.com/maliceio/engine/version"
+	// manifeststore "github.com/maliceio/engine/cli/malice/manifest/store"
+	// registryclient "github.com/maliceio/engine/cli/malice/registry/client"
+	// "github.com/maliceio/engine/cli/malice/trust"
 	"github.com/maliceio/engine/client"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-	"golang.org/x/net/context"
+	// "github.com/theupdateframework/notary"
+	// notaryclient "github.com/theupdateframework/notary/client"
+	// "github.com/theupdateframework/notary/passphrase"
 )
 
-// Cli represents the malice command line client.
+// Streams is an interface which exposes the standard input and output streams
+type Streams interface {
+	In() *InStream
+	Out() *OutStream
+	Err() io.Writer
+}
+
+// Cli represents the docker command line client.
 type Cli interface {
 	Client() client.APIClient
+	Out() *OutStream
 	Err() io.Writer
+	In() *InStream
+	SetIn(in *InStream)
 	ConfigFile() *configfile.ConfigFile
 	ServerInfo() ServerInfo
+	ClientInfo() ClientInfo
+	// NotaryClient(imgRefAndAuth trust.ImageRefAndAuth, actions []string) (notaryclient.Repository, error)
+	DefaultVersion() string
+	// ManifestStore() manifeststore.Store
+	// RegistryClient(bool) registryclient.RegistryClient
+	ContentTrustEnabled() bool
 }
 
-// MaliceCli is an instance the malice command line client.
-// Instances of the client can be returned from NewMaliceCli.
-type MaliceCli struct {
-	configFile     *configfile.ConfigFile
-	err            io.Writer
-	client         client.APIClient
-	defaultVersion string
-	server         ServerInfo
+// DockerCli is an instance the docker command line client.
+// Instances of the client can be returned from NewDockerCli.
+type DockerCli struct {
+	configFile   *configfile.ConfigFile
+	in           *InStream
+	out          *OutStream
+	err          io.Writer
+	client       client.APIClient
+	serverInfo   ServerInfo
+	clientInfo   ClientInfo
+	contentTrust bool
 }
 
-// DefaultVersion returns api.defaultVersion or MALICE_API_VERSION if specified.
-func (cli *MaliceCli) DefaultVersion() string {
-	return cli.defaultVersion
+// DefaultVersion returns api.defaultVersion or DOCKER_API_VERSION if specified.
+func (cli *DockerCli) DefaultVersion() string {
+	return cli.clientInfo.DefaultVersion
 }
 
 // Client returns the APIClient
-func (cli *MaliceCli) Client() client.APIClient {
+func (cli *DockerCli) Client() client.APIClient {
 	return cli.client
 }
 
+// Out returns the writer used for stdout
+func (cli *DockerCli) Out() *OutStream {
+	return cli.out
+}
+
 // Err returns the writer used for stderr
-func (cli *MaliceCli) Err() io.Writer {
+func (cli *DockerCli) Err() io.Writer {
 	return cli.err
+}
+
+// SetIn sets the reader used for stdin
+func (cli *DockerCli) SetIn(in *InStream) {
+	cli.in = in
+}
+
+// In returns the reader used for stdin
+func (cli *DockerCli) In() *InStream {
+	return cli.in
 }
 
 // ShowHelp shows the command help.
@@ -64,57 +104,108 @@ func ShowHelp(err io.Writer) func(*cobra.Command, []string) error {
 }
 
 // ConfigFile returns the ConfigFile
-func (cli *MaliceCli) ConfigFile() *configfile.ConfigFile {
+func (cli *DockerCli) ConfigFile() *configfile.ConfigFile {
 	return cli.configFile
 }
 
 // ServerInfo returns the server version details for the host this client is
 // connected to
-func (cli *MaliceCli) ServerInfo() ServerInfo {
-	return cli.server
+func (cli *DockerCli) ServerInfo() ServerInfo {
+	return cli.serverInfo
 }
 
-// Initialize the maliceCli runs initialization that must happen after command
+// ClientInfo returns the client details for the cli
+func (cli *DockerCli) ClientInfo() ClientInfo {
+	return cli.clientInfo
+}
+
+// RegistryClient returns a client for communicating with a Docker distribution
+// registry
+// func (cli *DockerCli) RegistryClient(allowInsecure bool) registryclient.RegistryClient {
+// 	resolver := func(ctx context.Context, index *registrytypes.IndexInfo) types.AuthConfig {
+// 		return ResolveAuthConfig(ctx, cli, index)
+// 	}
+// 	return registryclient.NewRegistryClient(resolver, UserAgent(), allowInsecure)
+// }
+
+// Initialize the dockerCli runs initialization that must happen after command
 // line flags are parsed.
-func (cli *MaliceCli) Initialize(opts *cliflags.ClientOptions) error {
-	cli.configFile = LoadDefaultConfigFile(cli.err)
+func (cli *DockerCli) Initialize(opts *cliflags.ClientOptions) error {
+	cli.configFile = cliconfig.LoadDefaultConfigFile(cli.err)
 
 	var err error
 	cli.client, err = NewAPIClientFromFlags(opts.Common, cli.configFile)
 	// if tlsconfig.IsErrEncryptedKey(err) {
-	// 	var (
-	// 		passwd string
-	// 		giveup bool
-	// 	)
 	// 	passRetriever := passphrase.PromptRetrieverWithInOut(cli.In(), cli.Out(), nil)
-
-	// 	for attempts := 0; tlsconfig.IsErrEncryptedKey(err); attempts++ {
-	// 		// some code and comments borrowed from notary/trustmanager/keystore.go
-	// 		passwd, giveup, err = passRetriever("private", "encrypted TLS private", false, attempts)
-	// 		// Check if the passphrase retriever got an error or if it is telling us to give up
-	// 		if giveup || err != nil {
-	// 			return errors.Wrap(err, "private key is encrypted, but could not get passphrase")
-	// 		}
-
-	// 		opts.Common.TLSOptions.Passphrase = passwd
-	// 		cli.client, err = NewAPIClientFromFlags(opts.Common, cli.configFile)
+	// 	newClient := func(password string) (client.APIClient, error) {
+	// 		opts.Common.TLSOptions.Passphrase = password
+	// 		return NewAPIClientFromFlags(opts.Common, cli.configFile)
 	// 	}
+	// 	cli.client, err = getClientWithPassword(passRetriever, newClient)
 	// }
-
 	if err != nil {
 		return err
 	}
-
-	cli.defaultVersion = cli.client.ClientVersion()
-
-	if ping, err := cli.client.Ping(context.Background()); err == nil {
-		cli.server = ServerInfo{
-			OSType: ping.OSType,
-		}
+	// var experimentalValue string
+	// Environment variable always overrides configuration
+	// if experimentalValue = os.Getenv("DOCKER_CLI_EXPERIMENTAL"); experimentalValue == "" {
+	// 	experimentalValue = cli.configFile.Experimental
+	// }
+	// hasExperimental, err := isEnabled(experimentalValue)
+	if err != nil {
+		return errors.Wrap(err, "Experimental field")
 	}
-
+	cli.clientInfo = ClientInfo{
+		DefaultVersion: cli.client.ClientVersion(),
+		// HasExperimental: hasExperimental,
+	}
+	cli.initializeFromClient()
 	return nil
 }
+
+func isEnabled(value string) (bool, error) {
+	switch value {
+	case "enabled":
+		return true, nil
+	case "", "disabled":
+		return false, nil
+	default:
+		return false, errors.Errorf("%q is not valid, should be either enabled or disabled", value)
+	}
+}
+
+func (cli *DockerCli) initializeFromClient() {
+	ping, err := cli.client.Ping(context.Background())
+	if err != nil {
+		// Default to true if we fail to connect to daemon
+		cli.serverInfo = ServerInfo{HasExperimental: true}
+
+		if ping.APIVersion != "" {
+			cli.client.NegotiateAPIVersionPing(ping)
+		}
+		return
+	}
+
+	cli.serverInfo = ServerInfo{
+		HasExperimental: ping.Experimental,
+		OSType:          ping.OSType,
+	}
+	cli.client.NegotiateAPIVersionPing(ping)
+}
+
+// func getClientWithPassword(passRetriever notary.PassRetriever, newClient func(password string) (client.APIClient, error)) (client.APIClient, error) {
+// 	for attempts := 0; ; attempts++ {
+// 		passwd, giveup, err := passRetriever("private", "encrypted TLS private", false, attempts)
+// 		if giveup || err != nil {
+// 			return nil, errors.Wrap(err, "private key is encrypted, but could not get passphrase")
+// 		}
+
+// 		apiclient, err := newClient(passwd)
+// 		if !tlsconfig.IsErrEncryptedKey(err) {
+// 			return apiclient, err
+// 		}
+// 	}
+// }
 
 // ServerInfo stores details about the supported features and platform of the
 // server
@@ -123,22 +214,15 @@ type ServerInfo struct {
 	OSType          string
 }
 
-// NewMaliceCli returns a MaliceCli instance with IO output and error streams set by in, out and err.
-func NewMaliceCli(err io.Writer) *MaliceCli {
-	return &MaliceCli{err: err}
+// ClientInfo stores details about the supported features of the client
+type ClientInfo struct {
+	HasExperimental bool
+	DefaultVersion  string
 }
 
-// LoadDefaultConfigFile attempts to load the default config file and returns
-// an initialized ConfigFile struct if none is found.
-func LoadDefaultConfigFile(err io.Writer) *configfile.ConfigFile {
-	configFile, e := cliconfig.Load(cliconfig.Dir())
-	if e != nil {
-		fmt.Fprintf(err, "WARNING: Error loading config file:%v\n", e)
-	}
-	// if !configFile.ContainsAuth() {
-	// 	credentials.DetectDefaultStore(configFile)
-	// }
-	return configFile
+// NewDockerCli returns a DockerCli instance with IO output and error streams set by in, out and err.
+func NewDockerCli(in io.ReadCloser, out, err io.Writer, isTrusted bool) *DockerCli {
+	return &DockerCli{in: NewInStream(in), out: NewOutStream(out), err: err, contentTrust: isTrusted}
 }
 
 // NewAPIClientFromFlags creates a new APIClient from command line flags
@@ -155,59 +239,61 @@ func NewAPIClientFromFlags(opts *cliflags.CommonOptions, configFile *configfile.
 	customHeaders["User-Agent"] = UserAgent()
 
 	verStr := api.DefaultVersion
-	if tmpStr := os.Getenv("MALICE_API_VERSION"); tmpStr != "" {
+	if tmpStr := os.Getenv("DOCKER_API_VERSION"); tmpStr != "" {
 		verStr = tmpStr
 	}
 
-	httpClient, err := newHTTPClient(host, opts.TLSOptions)
-	if err != nil {
-		return &client.Client{}, err
-	}
-
-	return client.NewClient(host, verStr, httpClient, customHeaders)
+	return client.NewClientWithOpts(
+		withHTTPClient(opts.TLSOptions),
+		client.WithHTTPHeaders(customHeaders),
+		client.WithVersion(verStr),
+		client.WithHost(host),
+	)
 }
 
-func getServerHost(hosts []string, tlsOptions *tlsconfig.Options) (host string, err error) {
+func getServerHost(hosts []string, tlsOptions *tlsconfig.Options) (string, error) {
+	var host string
 	switch len(hosts) {
 	case 0:
-		host = os.Getenv("MALICE_HOST")
+		host = os.Getenv("DOCKER_HOST")
 	case 1:
 		host = hosts[0]
 	default:
 		return "", errors.New("Please specify only one -H")
 	}
 
-	host, err = mopts.ParseHost(tlsOptions != nil, host)
-	return
+	return mopts.ParseHost(tlsOptions != nil, host)
 }
 
-func newHTTPClient(host string, tlsOptions *tlsconfig.Options) (*http.Client, error) {
-	if tlsOptions == nil {
-		// let the api client configure the default transport.
-		return nil, nil
-	}
-	opts := *tlsOptions
-	opts.ExclusiveRootPools = true
-	config, err := tlsconfig.Client(opts)
-	if err != nil {
-		return nil, err
-	}
-	tr := &http.Transport{
-		TLSClientConfig: config,
-	}
-	proto, addr, _, err := client.ParseHost(host)
-	if err != nil {
-		return nil, err
-	}
+func withHTTPClient(tlsOpts *tlsconfig.Options) func(*client.Client) error {
+	return func(c *client.Client) error {
+		if tlsOpts == nil {
+			// Use the default HTTPClient
+			return nil
+		}
 
-	sockets.ConfigureTransport(tr, proto, addr)
+		opts := *tlsOpts
+		opts.ExclusiveRootPools = true
+		tlsConfig, err := tlsconfig.Client(opts)
+		if err != nil {
+			return err
+		}
 
-	return &http.Client{
-		Transport: tr,
-	}, nil
+		httpClient := &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: tlsConfig,
+				DialContext: (&net.Dialer{
+					KeepAlive: 30 * time.Second,
+					Timeout:   30 * time.Second,
+				}).DialContext,
+			},
+			CheckRedirect: client.CheckRedirect,
+		}
+		return client.WithHTTPClient(httpClient)(c)
+	}
 }
 
 // UserAgent returns the user agent string used for making API requests
 func UserAgent() string {
-	return "Malice-Client/" + cli.Version + " (" + runtime.GOOS + ")"
+	return "Malice-Client/" + version.Version + " (" + runtime.GOOS + ")"
 }
